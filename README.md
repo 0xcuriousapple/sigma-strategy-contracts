@@ -1,6 +1,6 @@
 # Sigma Strategy 
-Strategy built on top of Uni v3 and Yearn, utlizing your funds in best way.
-Built by Anon Finance
+Strategy built on top of Uni v3 and Yearn <br>
+https://hackmd.io/@134dd3v/SkVUgYQZt
 
 ```shell
 npx hardhat accounts
