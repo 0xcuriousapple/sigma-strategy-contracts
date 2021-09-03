@@ -2,11 +2,14 @@
 
 pragma solidity ^0.8.0;
 
+// OZ
 import "@openzeppelin/contracts/utils/math/Math.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+
+// UNI
 import "@uniswap/v3-core/contracts/interfaces/callback/IUniswapV3MintCallback.sol";
 import "@uniswap/v3-core/contracts/interfaces/callback/IUniswapV3SwapCallback.sol";
 import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
@@ -14,8 +17,14 @@ import "@uniswap/v3-core/contracts/libraries/TickMath.sol";
 import "@uniswap/v3-core/contracts/libraries/SqrtPriceMath.sol";
 import "@uniswap/v3-periphery/contracts/libraries/LiquidityAmounts.sol";
 import "@uniswap/v3-periphery/contracts/libraries/PositionKey.sol";
+
+// Yearn
 import "./interfaces/YearnVaultAPI.sol";
 import "./interfaces/IVault.sol";
+
+// Our Own
+
+import "./lib/Governable.sol";
 
 // Code borrowed and modified from https://github.com/charmfinance/alpha-vaults-contracts/blob/main/contracts/AlphaVault.sol
 
@@ -31,7 +40,8 @@ contract SigmaVault is
     IUniswapV3MintCallback,
     IUniswapV3SwapCallback,
     ERC20,
-    ReentrancyGuard
+    ReentrancyGuard,
+    Governable
 {
     using SafeERC20 for IERC20;
 
@@ -76,8 +86,6 @@ contract SigmaVault is
     uint256 public protocolFee;
     uint256 public maxTotalSupply;
     address public strategy;
-    address public governance;
-    address public pendingGovernance;
 
     int24 public tick_lower;
     int24 public tick_upper;
@@ -97,6 +105,8 @@ contract SigmaVault is
         uint256 _protocolFee,
         uint256 _maxTotalSupply
     ) ERC20("Sigma Vault", "SV") {
+        require(_protocolFee < 1e6, "protocolFee");
+
         pool = IUniswapV3Pool(_pool);
         token0 = IERC20(IUniswapV3Pool(_pool).token0());
         token1 = IERC20(IUniswapV3Pool(_pool).token1());
@@ -107,9 +117,6 @@ contract SigmaVault is
 
         protocolFee = _protocolFee;
         maxTotalSupply = _maxTotalSupply;
-        governance = msg.sender;
-
-        require(_protocolFee < 1e6, "protocolFee");
     }
 
     /**
@@ -345,8 +352,7 @@ contract SigmaVault is
         uint8 uniswapShare,
         int24 _tick_lower,
         int24 _tick_upper
-    ) external nonReentrant {
-        require(msg.sender == strategy, "strategy");
+    ) external nonReentrant onlyStrategy {
         _checkRange(_tick_lower, _tick_upper);
 
         // Step 1 : Withdraw
@@ -638,27 +644,13 @@ contract SigmaVault is
     }
 
     /**
-     * @notice Used to collect accumulated protocol fees.
-     */
-    function collectProtocol(
-        uint256 amount0,
-        uint256 amount1,
-        address to
-    ) external onlyGovernance {
-        accruedProtocolFees0 = accruedProtocolFees0 - amount0;
-        accruedProtocolFees1 = accruedProtocolFees1 - amount1;
-        if (amount0 > 0) token0.safeTransfer(to, amount0);
-        if (amount1 > 0) token1.safeTransfer(to, amount1);
-    }
-
-    /**
      * @notice Removes tokens accidentally sent to this vault.
      */
     function sweep(
         IERC20 token,
         uint256 amount,
         address to
-    ) external onlyGovernance {
+    ) external onlyGovernanceOrTeamMultisig {
         require(token != token0 && token != token1, "token");
         token.safeTransfer(to, amount);
     }
@@ -668,7 +660,10 @@ contract SigmaVault is
      * ranges and calls rebalance(). Must be called after this vault is
      * deployed.
      */
-    function setStrategy(address _strategy) external onlyGovernance {
+    function setStrategy(address _strategy)
+        external
+        onlyGovernanceOrTeamMultisig
+    {
         strategy = _strategy;
     }
 
@@ -689,7 +684,7 @@ contract SigmaVault is
      */
     function setMaxTotalSupply(uint256 _maxTotalSupply)
         external
-        onlyGovernance
+        onlyGovernanceOrTeamMultisig
     {
         maxTotalSupply = _maxTotalSupply;
     }
@@ -701,7 +696,7 @@ contract SigmaVault is
         int24 tickLower,
         int24 tickUpper,
         uint128 liquidity
-    ) external onlyGovernance {
+    ) external onlyGovernanceOrTeamMultisig {
         pool.burn(tickLower, tickUpper, liquidity);
         pool.collect(
             address(this),
@@ -712,25 +707,8 @@ contract SigmaVault is
         );
     }
 
-    /**
-     * @notice Governance address is not updated until the new governance
-     * address has called `acceptGovernance()` to accept this responsibility.
-     */
-    function setGovernance(address _governance) external onlyGovernance {
-        pendingGovernance = _governance;
-    }
-
-    /**
-     * @notice `setGovernance()` should be called by the existing governance
-     * address prior to calling this function.
-     */
-    function acceptGovernance() external {
-        require(msg.sender == pendingGovernance, "pendingGovernance");
-        governance = msg.sender;
-    }
-
-    modifier onlyGovernance() {
-        require(msg.sender == governance, "governance");
+    modifier onlyStrategy() {
+        require(msg.sender == strategy, "strategy");
         _;
     }
 }
