@@ -11,10 +11,20 @@ import "@uniswap/v3-core/contracts/interfaces/callback/IUniswapV3MintCallback.so
 import "@uniswap/v3-core/contracts/interfaces/callback/IUniswapV3SwapCallback.sol";
 import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 import "@uniswap/v3-core/contracts/libraries/TickMath.sol";
+import "@uniswap/v3-core/contracts/libraries/SqrtPriceMath.sol";
 import "@uniswap/v3-periphery/contracts/libraries/LiquidityAmounts.sol";
 import "@uniswap/v3-periphery/contracts/libraries/PositionKey.sol";
 import "./interfaces/YearnVaultAPI.sol";
 import "./interfaces/IVault.sol";
+
+// Code borrowed and modified from https://github.com/charmfinance/alpha-vaults-contracts/blob/main/contracts/AlphaVault.sol
+
+/**
+ * @title   Sigma Vault
+ * @notice  TBA
+ * TBA
+ * TBA
+ */
 
 contract SigmaVault is
     IVault,
@@ -69,8 +79,8 @@ contract SigmaVault is
     address public governance;
     address public pendingGovernance;
 
-    int24 public baseLower;
-    int24 public baseUpper;
+    int24 public tick_lower;
+    int24 public tick_upper;
     uint256 public accruedProtocolFees0;
     uint256 public accruedProtocolFees1;
 
@@ -140,7 +150,7 @@ contract SigmaVault is
         require(to != address(0) && to != address(this), "to");
 
         // Poke positions so vault's current holdings are up-to-date
-        _poke(baseLower, baseUpper);
+        _poke(tick_lower, tick_upper);
 
         // Calculate amounts proportional to vault's holdings
         (shares, amount0, amount1) = _calcSharesAndAmounts(
@@ -258,8 +268,8 @@ contract SigmaVault is
 
         // Withdraw proportion of liquidity from Uniswap pool
         (uint256 baseAmount0, uint256 baseAmount1) = _burnLiquidityShare(
-            baseLower,
-            baseUpper,
+            tick_lower,
+            tick_upper,
             shares,
             totalSupply
         );
@@ -331,7 +341,84 @@ contract SigmaVault is
      * should use up all of one token, leaving only the other one. This excess
      * amount is then placed as a single-sided bid or ask order.
      */
-    function rebalance() external nonReentrant {}
+    function rebalance(
+        uint8 uniswapShare,
+        int24 _tick_lower,
+        int24 _tick_upper
+    ) external nonReentrant {
+        require(msg.sender == strategy, "strategy");
+        _checkRange(_tick_lower, _tick_upper);
+
+        // Step 1 : Withdraw
+
+        // Uniswap pool
+        {
+            (uint128 baseLiquidity, , , , ) = _position(tick_lower, tick_upper);
+            _burnAndCollect(tick_lower, tick_upper, baseLiquidity);
+        }
+
+        // Yearn
+        uint256 lentAmount0 = lendVault0.maxAvailableShares() *
+            lendVault0.pricePerShare();
+        uint256 lentAmount1 = lendVault1.maxAvailableShares() *
+            lendVault1.pricePerShare();
+
+        lendVault0.withdraw(lentAmount0);
+        lendVault1.withdraw(lentAmount1);
+
+        // Step 2 : Calculate New Positions and Mint liquidity
+
+        uint256 totalAssets0 = getBalance0();
+        uint256 totalAssets1 = getBalance1();
+
+        // Uniswap
+        (uint160 sqrtPriceCurrent, , , , , , ) = pool.slot0();
+        uint160 infinity = uint160(uint256(1 << 160) - 1);
+
+        uint128 liq0 = LiquidityAmounts.getLiquidityForAmount0(
+            0,
+            sqrtPriceCurrent,
+            totalAssets0
+        );
+        uint128 liq1 = LiquidityAmounts.getLiquidityForAmount1(
+            sqrtPriceCurrent,
+            infinity,
+            totalAssets1
+        );
+        uint128 liq = liq0 > liq1 ? liq1 : liq0;
+
+        uint256 uniswapDeposit0 = (totalAssets0 * uniswapShare) / 100;
+        uint256 uniswapDeposit1 = (totalAssets1 * uniswapShare) / 100;
+
+        uint160 sqrtPriceUpper = SqrtPriceMath
+            .getNextSqrtPriceFromAmount0RoundingUp(
+                sqrtPriceCurrent,
+                liq,
+                uniswapDeposit0,
+                true
+            );
+
+        uint160 sqrtPriceLower = SqrtPriceMath
+            .getNextSqrtPriceFromAmount1RoundingDown(
+                sqrtPriceCurrent,
+                liq,
+                uniswapDeposit1,
+                true
+            );
+
+        tick_lower = TickMath.getTickAtSqrtRatio(sqrtPriceLower);
+        tick_upper = TickMath.getTickAtSqrtRatio(sqrtPriceUpper);
+        _mintLiquidity(_tick_lower, _tick_upper, liq);
+        (tick_lower, tick_upper) = (_tick_lower, _tick_upper);
+
+        // Yearn
+        uint256 yearnDeposit0 = totalAssets0 - uniswapDeposit0;
+        uint256 yearnDeposit1 = totalAssets1 - uniswapDeposit1;
+        token0.approve(address(lendVault0), yearnDeposit0);
+        token1.approve(address(lendVault1), yearnDeposit1);
+        lendVault0.deposit(yearnDeposit0);
+        lendVault1.deposit(yearnDeposit1);
+    }
 
     function _checkRange(int24 tickLower, int24 tickUpper) internal view {
         int24 _tickSpacing = tickSpacing;
@@ -404,6 +491,14 @@ contract SigmaVault is
         }
     }
 
+    function getBalance0() public view returns (uint256) {
+        return token0.balanceOf(address(this)) - accruedProtocolFees0;
+    }
+
+    function getBalance1() public view returns (uint256) {
+        return token1.balanceOf(address(this)) - accruedProtocolFees1;
+    }
+
     /**
      * @notice Calculates the vault's total holdings of token0 and token1 - in
      * other words, how much of each token the vault would hold if it withdrew
@@ -416,8 +511,8 @@ contract SigmaVault is
         returns (uint256 total0, uint256 total1)
     {
         (uint256 baseAmount0, uint256 baseAmount1) = getPositionAmounts(
-            baseLower,
-            baseUpper
+            tick_lower,
+            tick_upper
         );
         // TODO : CHeck Yearn
         uint256 lentAmount0 = lendVault0.maxAvailableShares() *
