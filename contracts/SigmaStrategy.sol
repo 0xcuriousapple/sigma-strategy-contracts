@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 import "@uniswap/v3-core/contracts/libraries/TickMath.sol";
-import "./SigmaVault.sol";
+import "./interfaces/ISigmaVault.sol";
 
 // Code borrowed and modified from https://github.com/charmfinance/alpha-vaults-contracts/blob/main/contracts/AlphaStrategy.sol
 
@@ -14,7 +14,7 @@ import "./SigmaVault.sol";
  * TBA
  */
 contract SigmaStrategy {
-    SigmaVault public immutable vault;
+    ISigmaVault public immutable vault;
     IUniswapV3Pool public immutable pool;
     int24 public immutable tickSpacing;
 
@@ -45,7 +45,7 @@ contract SigmaStrategy {
         require(_maxTwapDeviation > 0, "maxTwapDeviation");
         require(_twapDuration > 0, "twapDuration");
 
-        vault = SigmaVault(_vault);
+        vault = ISigmaVault(_vault);
         pool = vault.pool();
         tickSpacing = pool.tickSpacing();
 
@@ -88,14 +88,9 @@ contract SigmaStrategy {
         int24 deviation = tick > twap ? tick - twap : twap - tick;
         require(deviation <= maxTwapDeviation, "maxTwapDeviation");
 
-        int24 tickFloor = _floor(tick);
-        int24 tickCeil = tickFloor + tickSpacing;
+        // TODO : If possible check if its good idea to withdraw from yearn now
 
-        vault.rebalance(
-            uniswapShare,
-            tickFloor - _baseThreshold,
-            tickCeil + _baseThreshold
-        );
+        vault.rebalance(uniswapShare);
 
         lastRebalance = block.timestamp;
         lastTick = tick;
@@ -106,7 +101,7 @@ contract SigmaStrategy {
         (, tick, , , , , ) = pool.slot0();
     }
 
-    /// @dev Fetches time-weighted average price in ticks from Uniswap pool.
+    // /// @dev Fetches time-weighted average price in ticks from Uniswap pool.
     function getTwap() public view returns (int24) {
         uint32 _twapDuration = twapDuration;
         uint32[] memory secondsAgo = new uint32[](2);
