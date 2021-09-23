@@ -356,8 +356,40 @@ contract SigmaVault is
         uint256 totalAssets0 = getBalance0();
         uint256 totalAssets1 = getBalance1();
 
+        // Swap Excess
+        (uint160 sqrtPriceCurrent, , , , , uint8 feeProtocol, ) = pool.slot0();
+
+        uint256 total0ValueIn1 = totalAssets0 * sqrtPriceCurrent; // TODO : TWAP
+        uint256 total1ValueIn0 = totalAssets1 / sqrtPriceCurrent;
+        uint256 feeTier = 0; // Todo : fee protocol is saved as 1/x %, will update it accordingly
+
+        if (total0ValueIn1 > totalAssets1) {
+            //token0 is in excess
+            //Swap excess token0 into token1
+            uint256 totalExcessIn0 = totalAssets0 - total1ValueIn0;
+            uint256 swapAmount = totalExcessIn0 / (2 * (1 - feeTier));
+            pool.swap(
+                address(this),
+                true,
+                int256(swapAmount),
+                sqrtPriceCurrent, // TODO : LIMIT, how to handle so
+                ""
+            );
+        } else if (total1ValueIn0 > totalAssets0) {
+            //token1 is in excess
+            //Swap excess token1 into token0
+            uint256 totalExcessIn1 = totalAssets1 - total0ValueIn1;
+            uint256 swapAmount = totalExcessIn1 / (2 * (1 - feeTier));
+            pool.swap(
+                address(this),
+                false,
+                int256(swapAmount),
+                sqrtPriceCurrent, // TODO : LIMIT, how to handle so
+                ""
+            );
+        }
+        
         // Uniswap
-        (uint160 sqrtPriceCurrent, , , , , , ) = pool.slot0();
         uint160 infinity = uint160(uint256(1 << 160) - 1);
 
         uint128 liq0 = LiquidityAmounts.getLiquidityForAmount0(
