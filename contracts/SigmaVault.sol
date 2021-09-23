@@ -333,6 +333,8 @@ contract SigmaVault is
 
             // Add share of fees
             // Commenting due to stack to deep issue
+            amount0 = burned0;
+            amount1 = burned1;
             // amount0 = burned0.add(lvWithdraw0).add(
             //     (fees0.mul(shares)).div(totalSupply)
             // ); // TODO : the fees are divided twice, once in liq, once here ?
