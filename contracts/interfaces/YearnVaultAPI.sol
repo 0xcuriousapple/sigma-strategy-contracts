@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Unlicense
 
-pragma solidity ^0.8.0;
+pragma solidity 0.7.6;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
@@ -52,11 +52,6 @@ interface VaultAPI is IERC20 {
         returns (uint256);
 
     function token() external view returns (address);
-
-    function strategies(address _strategy)
-        external
-        view
-        returns (StrategyParams memory);
 
     function pricePerShare() external view returns (uint256);
 

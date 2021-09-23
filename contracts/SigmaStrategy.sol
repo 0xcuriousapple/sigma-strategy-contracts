@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Unlicense
-pragma solidity ^0.8.0;
+pragma solidity ^0.7.6;
 
 import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 import "@uniswap/v3-core/contracts/libraries/TickMath.sol";
@@ -14,9 +14,9 @@ import "./interfaces/ISigmaVault.sol";
  * TBA
  */
 contract SigmaStrategy {
-    ISigmaVault public immutable vault;
-    IUniswapV3Pool public immutable pool;
-    int24 public immutable tickSpacing;
+    ISigmaVault public vault;
+    IUniswapV3Pool public pool;
+    int24 public tickSpacing;
 
     uint8 public uniswapShare;
     int24 public baseThreshold; // Why int, why not uint ?
