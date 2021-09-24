@@ -117,13 +117,13 @@ contract SigmaVault is
     ) ERC20("Sigma Vault", "SV") {
         require(_protocolFee < 1e6, "protocolFee");
 
-        // pool = IUniswapV3Pool(_pool);
-        // token0 = IERC20(IUniswapV3Pool(_pool).token0());
-        // token1 = IERC20(IUniswapV3Pool(_pool).token1());
-        // tickSpacing = IUniswapV3Pool(_pool).tickSpacing();
+        pool = IUniswapV3Pool(_pool);
+        token0 = IERC20(IUniswapV3Pool(_pool).token0());
+        token1 = IERC20(IUniswapV3Pool(_pool).token1());
+        tickSpacing = IUniswapV3Pool(_pool).tickSpacing();
 
-        // lendVault0 = VaultAPI(_lendVault0);
-        // lendVault1 = VaultAPI(_lendVault1);
+        lendVault0 = VaultAPI(_lendVault0);
+        lendVault1 = VaultAPI(_lendVault1);
 
         protocolFee = _protocolFee;
         maxTotalSupply = _maxTotalSupply;
