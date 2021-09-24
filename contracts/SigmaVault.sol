@@ -83,6 +83,13 @@ contract SigmaVault is
     IERC20 public immutable token1;
     int24 public immutable tickSpacing;
 
+    struct lv{
+        uint256 withdraw0; 
+        uint256 withdraw1; 
+        uint256 deposited0; 
+        uint256 deposited1; 
+    }
+
     VaultAPI public lendVault0;
     VaultAPI public lendVault1;
 
@@ -281,22 +288,7 @@ contract SigmaVault is
         _burn(msg.sender, shares);
 
         // Withdraw proportion of liquidity from Uniswap pool and from yearn
-        (amount0, amount1) = _withdrawPropotional(shares, totalSupply);
-        require(amount0 >= amount0Min, "amount0Min");
-        require(amount1 >= amount1Min, "amount1Min");
 
-        // Push tokens to recipient
-        if (amount0 > 0) token0.safeTransfer(to, amount0);
-        if (amount1 > 0) token1.safeTransfer(to, amount1);
-
-        emit Withdraw(msg.sender, to, shares, amount0, amount1);
-    }
-
-    /// @dev Withdraws from uniswap and yearn propotional to shares passed
-    function _withdrawPropotional(uint256 shares, uint256 totalSupply)
-        internal
-        returns (uint256 amount0, uint256 amount1)
-    {
         (uint128 totalLiquidity, , , , ) = _position(tick_lower, tick_upper);
         uint256 liquidity = (
             (uint256(totalLiquidity).mul(shares)).div(totalSupply)
@@ -309,39 +301,25 @@ contract SigmaVault is
             lendVault1.pricePerShare()
         );
 
-        uint256 lvWithdraw0 = (lvTotal0.mul(shares)).div(totalSupply);
-        uint256 lvWithdraw1 = (lvTotal1.mul(shares)).div(totalSupply);
-        uint256 lvDeposit0 = (lvTotalDeposited0.mul(shares)).div(totalSupply);
-        uint256 lvDeposit1 = (lvTotalDeposited1.mul(shares)).div(totalSupply);
+        
+        lv memory _lv;
+        _lv.withdraw0 =  (lvTotal0.mul(shares)).div(totalSupply);
+        _lv.withdraw1 =     (lvTotal1.mul(shares)).div(totalSupply);
+        _lv.deposited0 =  (lvTotalDeposited0.mul(shares)).div(totalSupply);
+        _lv.deposited1 =     (lvTotalDeposited1.mul(shares)).div(totalSupply);
+     
+        (amount0, amount1) = 
+        _withdraw(_toUint128(liquidity), _lv);
 
-        if (liquidity > 0) {
-            // TODO : this condition needs to be checked, if its needed or not
-            (
-                uint256 burned0,
-                uint256 burned1,
-                uint256 fees0,
-                uint256 fees1
-            ) = _burnAndCollect(
-                    tick_lower,
-                    tick_upper,
-                    _toUint128(liquidity),
-                    lvWithdraw0,
-                    lvWithdraw1,
-                    lvDeposit0,
-                    lvDeposit1
-                );
+        require(amount0 >= amount0Min, "amount0Min");
+        require(amount1 >= amount1Min, "amount1Min");
+        
+        
+        // Push tokens to recipient
+        if (amount0 > 0) token0.safeTransfer(to, amount0);
+        if (amount1 > 0) token1.safeTransfer(to, amount1);
 
-            // Add share of fees
-            // Commenting due to stack to deep issue
-            amount0 = burned0;
-            amount1 = burned1;
-            // amount0 = burned0.add(lvWithdraw0).add(
-            //     (fees0.mul(shares)).div(totalSupply)
-            // ); // TODO : the fees are divided twice, once in liq, once here ?
-            // amount1 = burned1.add(lvWithdraw1).add(
-            //     (fees1.mul(shares)).div(totalSupply)
-            // );
-        }
+        emit Withdraw(msg.sender, to, shares, amount0, amount1);
     }
 
     /**
@@ -360,56 +338,26 @@ contract SigmaVault is
             uint256 lvTotal1 = lendVault0.balanceOf(address(this)).mul(
                 lendVault1.pricePerShare()
             );
-
-            _burnAndCollect(
-                tick_lower,
-                tick_upper,
-                totalLiquidity,
-                lvTotal0,
-                lvTotal1,
-                lvTotalDeposited0,
-                lvTotalDeposited1
-            );
+            
+            lv memory _lv;
+            _lv.withdraw0 = lvTotal0;
+            _lv.withdraw1 = lvTotal1;
+            _lv.deposited0 = lvTotalDeposited0;
+            _lv.deposited1 = lvTotalDeposited1;
+            _withdraw(totalLiquidity, _lv);
         }
 
-        // Step 2 : Calculate New Positions and Mint liquidity
+        // Step 2 : Swap Excess
 
         uint256 totalAssets0 = getBalance0();
         uint256 totalAssets1 = getBalance1();
 
-        // // Swap Excess
-        // (uint160 sqrtPriceCurrent, , , , , uint8 feeProtocol, ) = pool.slot0();
+        _swapExcess(totalAssets0, totalAssets1);
 
-        // uint256 total0ValueIn1 = totalAssets0.mul(sqrtPriceCurrent); // TODO : TWAP
-        // uint256 total1ValueIn0 = totalAssets1.div(sqrtPriceCurrent);
-        // uint256 feeTier = 0; // Todo : fee protocol is saved as 1/x %, will update it accordingly
+        (uint160 sqrtPriceCurrent, , , , , , ) = pool.slot0();
 
-        // if (total0ValueIn1 > totalAssets1) {
-        //     //token0 is in excess
-        //     //Swap excess token0 into token1
-        //     uint256 totalExcessIn0 = totalAssets0.sub(total1ValueIn0);
-        //     uint256 swapAmount = totalExcessIn0.div(2 * (1 - feeTier));
-        //     pool.swap(
-        //         address(this),
-        //         true,
-        //         int256(swapAmount),
-        //         sqrtPriceCurrent, // TODO : LIMIT, how to handle so
-        //         ""
-        //     );
-        // } else if (total1ValueIn0 > totalAssets0) {
-        //     //token1 is in excess
-        //     //Swap excess token1 into token0
-        //     uint256 totalExcessIn1 = totalAssets1.sub(total0ValueIn1);
-        //     uint256 swapAmount = totalExcessIn1.div(2 * (1 - feeTier));
-        //     pool.swap(
-        //         address(this),
-        //         false,
-        //         int256(swapAmount),
-        //         sqrtPriceCurrent, // TODO : LIMIT, how to handle so
-        //         ""
-        //     );
-        // }
-        (uint160 sqrtPriceCurrent, , , , , uint8 feeProtocol, ) = pool.slot0();
+
+        // Step 3 : Mint Liq and Yearn Deposit
         // Uniswap
         uint160 infinity = uint160(uint256(1 << 160) - 1);
 
@@ -461,6 +409,40 @@ contract SigmaVault is
         lendVault1.deposit(lvDeposit1);
     }
 
+    function _swapExcess(uint256 totalAssets0, uint256 totalAssets1) internal {
+        // Swap Excess
+        (uint160 sqrtPriceCurrent, , , , , uint8 feeProtocol, ) = pool.slot0();
+
+        uint256 total0ValueIn1 = totalAssets0.mul(sqrtPriceCurrent); // TODO : TWAP
+        uint256 total1ValueIn0 = totalAssets1.div(sqrtPriceCurrent);
+        uint256 feeTier = feeProtocol; // Todo : fee protocol is saved as 1/x %, will update it accordingly
+
+        if (total0ValueIn1 > totalAssets1) {
+            //token0 is in excess
+            //Swap excess token0 into token1
+            uint256 totalExcessIn0 = totalAssets0.sub(total1ValueIn0);
+            uint256 swapAmount = totalExcessIn0.div(2 * (1 - feeTier));
+            pool.swap(
+                address(this),
+                true,
+                int256(swapAmount),
+                sqrtPriceCurrent, // TODO : LIMIT, how to handle so
+                ""
+            );
+        } else if (total1ValueIn0 > totalAssets0) {
+            //token1 is in excess
+            //Swap excess token1 into token0
+            uint256 totalExcessIn1 = totalAssets1.sub(total0ValueIn1);
+            uint256 swapAmount = totalExcessIn1.div(2 * (1 - feeTier));
+            pool.swap(
+                address(this),
+                false,
+                int256(swapAmount),
+                sqrtPriceCurrent, // TODO : LIMIT, how to handle so
+                ""
+            );
+        }
+    }
     function _checkRange(int24 tickLower, int24 tickUpper) internal view {
         int24 _tickSpacing = tickSpacing;
         require(tickLower < tickUpper, "tickLower < tickUpper");
@@ -470,27 +452,51 @@ contract SigmaVault is
         require(tickUpper % _tickSpacing == 0, "tickUpper % tickSpacing");
     }
 
-    /// @dev Withdraws liquidity from uniswap with fees and from yearn
-    function _burnAndCollect(
-        int24 tickLower,
-        int24 tickUpper,
+    function _lvWithdraw(
+       lv memory _lv
+    ) internal returns (uint256 lvGain0, uint256 lvGain1) {
+        lendVault0.withdraw(_lv.withdraw0);
+        lendVault1.withdraw(_lv.withdraw1);
+        lvGain0 = _lv.withdraw0 > _lv.deposited0 ? _lv.withdraw0 -  _lv.deposited0 : 0;
+        lvGain1 = _lv.withdraw1 > _lv.deposited1 ? _lv.withdraw1 - _lv.deposited1 : 0;
+    }
+
+    function _withdraw(
         uint128 liquidity,
-        uint256 lvWithdraw0,
-        uint256 lvWithdraw1,
-        uint256 lvDeposited0,
-        uint256 lvDeposited1
+        lv memory _lv
     )
         internal
         returns (
-            uint256 burned0,
-            uint256 burned1,
-            uint256 gainVault0,
-            uint256 gainVault1
+            uint256 amount0,
+            uint256 amount1
         )
     {
+        (uint256 uni0Withdrawn, uint256 uni1Withdrawn, uint256 uniGain0, uint256 uniGain1) = _uniBurnAndCollect(
+            tick_lower,
+            tick_upper,
+            _toUint128(liquidity)
+        );
+        (uint256 lvGain0, uint256 lvGain1) = _lvWithdraw(
+          _lv
+        );
+        (uint256 gain0, uint256 gain1) = _accureFees(
+            uniGain0.add(lvGain0),
+            uniGain1.add(lvGain1)
+        );
+        // Review : the gains are divided twice in case of charm, once in liq, once here again, we need to chececk if thats neededs
+        amount0 = uni0Withdrawn.add(_lv.withdraw0).add(gain0);
+        amount1 = uni1Withdrawn.add(_lv.withdraw1).add(gain1);
+    }
+
+    /// @dev Withdraws liquidity from uniswap with fees
+    function _uniBurnAndCollect(
+        int24 tickLower,
+        int24 tickUpper,
+        uint128 liquidity
+    ) internal returns (uint256 uni0Withdrwn, uint256 uni1Withdrwn, uint256 uniGain0, uint256 uniGain1) {
         // Uniswap Withdraw
         if (liquidity > 0) {
-            (burned0, burned1) = pool.burn(tickLower, tickUpper, liquidity);
+            (uni0Withdrwn, uni1Withdrwn) = pool.burn(tickLower, tickUpper, liquidity);
         }
 
         (uint256 collect0, uint256 collect1) = pool.collect(
@@ -501,43 +507,30 @@ contract SigmaVault is
             type(uint128).max
         );
 
-        uint256 uniGain0 = collect0.sub(burned0);
-        uint256 uniGain1 = collect1.sub(burned1);
+        uniGain0 = collect0.sub(uni0Withdrwn);
+        uniGain1 = collect1.sub(uni1Withdrwn);
+    }
 
-        // Yearn Withdraw
-        lendVault0.withdraw(lvWithdraw0);
-        lendVault1.withdraw(lvWithdraw1);
-
-        uint256 lvGain0 = lvWithdraw0 > lvDeposited0
-            ? lvWithdraw0 - lvDeposited0
-            : 0;
-
-        uint256 lvGain1 = lvWithdraw1 > lvDeposited1
-            ? lvWithdraw1 - lvDeposited1
-            : 0;
-
-        // Taking Share from total gain
+    function _accureFees(uint256 totalGain0, uint256 totalGain1)
+        internal
+        returns (uint256 gain0, uint256 gain1)
+    {
         uint256 feesToProtocol0;
         uint256 feesToProtocol1;
-        uint256 _protocolFee = protocolFee;
-
-        uint256 totalGain0 = uniGain0.add(lvGain0);
-        uint256 totalGain1 = uniGain1.add(lvGain1);
-
-        if (_protocolFee > 0) {
-            feesToProtocol0 = (totalGain0.mul(_protocolFee)).div(1e6);
-            feesToProtocol1 = (totalGain1.mul(_protocolFee)).div(1e6);
+        if (protocolFee > 0) {
+            feesToProtocol0 = (totalGain0.mul(protocolFee)).div(1e6);
+            feesToProtocol1 = (totalGain1.mul(protocolFee)).div(1e6);
             accruedProtocolFees0 = accruedProtocolFees0.add(feesToProtocol0);
             accruedProtocolFees1 = accruedProtocolFees1.add(feesToProtocol1);
-            gainVault0 = uniGain0.sub(feesToProtocol0);
-            gainVault1 = uniGain1.sub(feesToProtocol1);
+            gain0 = totalGain0.sub(feesToProtocol0);
+            gain1 = totalGain1.sub(feesToProtocol1);
         }
-        emit CollectGain(
-            gainVault0,
-            gainVault1,
-            feesToProtocol0,
-            feesToProtocol1
-        );
+        // emit CollectGain(
+        //     gainVault0,
+        //     gainVault1,
+        //     feesToProtocol0,
+        //     feesToProtocol1
+        // );
     }
 
     /// @dev Deposits liquidity in a range on the Uniswap pool.

@@ -84,9 +84,9 @@ contract SigmaStrategy {
         // Check price has not moved a lot recently. This mitigates price
         // manipulation during rebalance and also prevents placing orders
         // when it's too volatile.
-        // int24 twap = getTwap();
-        // int24 deviation = tick > twap ? tick - twap : twap - tick;
-        // require(deviation <= maxTwapDeviation, "maxTwapDeviation");
+        int24 twap = getTwap();
+        int24 deviation = tick > twap ? tick - twap : twap - tick;
+        require(deviation <= maxTwapDeviation, "maxTwapDeviation");
 
         // TODO : If possible check if its good idea to withdraw from yearn now
 
@@ -101,16 +101,16 @@ contract SigmaStrategy {
         (, tick, , , , , ) = pool.slot0();
     }
 
-    // /// @dev Fetches time-weighted average price in ticks from Uniswap pool.
-    // function getTwap() public view returns (int24) {
-    //     uint32 _twapDuration = twapDuration;
-    //     uint32[] memory secondsAgo = new uint32[](2);
-    //     secondsAgo[0] = _twapDuration;
-    //     secondsAgo[1] = 0;
+    /// @dev Fetches time-weighted average price in ticks from Uniswap pool.
+    function getTwap() public view returns (int24) {
+        uint32 _twapDuration = twapDuration;
+        uint32[] memory secondsAgo = new uint32[](2);
+        secondsAgo[0] = _twapDuration;
+        secondsAgo[1] = 0;
 
-    //     (int56[] memory tickCumulatives, ) = pool.observe(secondsAgo);
-    //     return int24((tickCumulatives[1] - tickCumulatives[0]) / _twapDuration); // TODO : Operator / not compatible with types int56 and uint32
-    // }
+        (int56[] memory tickCumulatives, ) = pool.observe(secondsAgo);
+        return int24((tickCumulatives[1] - tickCumulatives[0]) / _twapDuration); 
+    }
 
     /// @dev Rounds tick down towards negative infinity so that it's a multiple
     /// of `tickSpacing`.
