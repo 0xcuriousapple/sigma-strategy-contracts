@@ -9,4 +9,5 @@ interface ISigmaVault {
     function governance() external view returns (address);
 
     function rebalance(uint8 uniswapShare) external;
+    function collectFees(address _feeCollector) external;
 }

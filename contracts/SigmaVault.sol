@@ -24,11 +24,7 @@ import "./interfaces/YearnVaultAPI.sol";
 
 // Our Own
 
-import "./lib/Governable.sol";
-
-// I had on
-//
-//
+import "./utils/Governable.sol";
 
 // Code borrowed and modified from https://github.com/charmfinance/alpha-vaults-contracts/blob/main/contracts/AlphaVault.sol
 
@@ -96,7 +92,6 @@ contract SigmaVault is
     uint256 public protocolFee;
     uint256 public maxTotalSupply;
     address public strategy;
-    address public feeCollector;
 
     int24 public tick_lower;
     int24 public tick_upper;
@@ -110,7 +105,6 @@ contract SigmaVault is
      * @param _pool Underlying Uniswap V3 pool
      * @param _lendVault0 address of lending vault 0
      * @param _lendVault1 address of lending vault 1
-     * @param _feeCollector address of fee collector, all accrued fees will be collected here
      * @param _protocolFee Protocol fee expressed as multiple of 1e-6
      * @param _maxTotalSupply Cap on total supply
      */
@@ -118,23 +112,21 @@ contract SigmaVault is
         address _pool,
         address _lendVault0,
         address _lendVault1,
-        address _feeCollector,
         uint256 _protocolFee,
         uint256 _maxTotalSupply
     ) ERC20("Sigma Vault", "SV") {
         require(_protocolFee < 1e6, "protocolFee");
 
-        pool = IUniswapV3Pool(_pool);
-        token0 = IERC20(IUniswapV3Pool(_pool).token0());
-        token1 = IERC20(IUniswapV3Pool(_pool).token1());
-        tickSpacing = IUniswapV3Pool(_pool).tickSpacing();
+        // pool = IUniswapV3Pool(_pool);
+        // token0 = IERC20(IUniswapV3Pool(_pool).token0());
+        // token1 = IERC20(IUniswapV3Pool(_pool).token1());
+        // tickSpacing = IUniswapV3Pool(_pool).tickSpacing();
 
-        lendVault0 = VaultAPI(_lendVault0);
-        lendVault1 = VaultAPI(_lendVault1);
+        // lendVault0 = VaultAPI(_lendVault0);
+        // lendVault1 = VaultAPI(_lendVault1);
 
         protocolFee = _protocolFee;
         maxTotalSupply = _maxTotalSupply;
-        feeCollector = _feeCollector;
     }
 
     /**
@@ -525,12 +517,6 @@ contract SigmaVault is
             gain0 = totalGain0.sub(feesToProtocol0);
             gain1 = totalGain1.sub(feesToProtocol1);
         }
-        // emit CollectGain(
-        //     gainVault0,
-        //     gainVault1,
-        //     feesToProtocol0,
-        //     feesToProtocol1
-        // );
     }
 
     /// @dev Deposits liquidity in a range on the Uniswap pool.
@@ -677,9 +663,9 @@ contract SigmaVault is
     /**
      * @notice Used to collect accumulated protocol fees.
      */
-    function collectFees() external onlyFeeCollector {
-        token0.safeTransfer(feeCollector, accruedProtocolFees0);
-        token1.safeTransfer(feeCollector, accruedProtocolFees1);
+    function collectFees(address _feeCollector) external onlyStrategy {
+        token0.safeTransfer(_feeCollector, accruedProtocolFees0);
+        token1.safeTransfer(_feeCollector, accruedProtocolFees1);
     }
 
     /**
@@ -706,17 +692,6 @@ contract SigmaVault is
         strategy = _strategy;
     }
 
-    /**
-     * @notice Used to set the strategy contract that determines the position
-     * ranges and calls rebalance(). Must be called after this vault is
-     * deployed.
-     */
-    function setFeeCollector(address _feeCollector)
-        external
-        onlyGovernanceOrTeamMultisig
-    {
-        feeCollector = _feeCollector;
-    }
 
     /**
      * @notice Used to change the protocol fee charged on pool fees earned from
@@ -763,8 +738,4 @@ contract SigmaVault is
         _;
     }
 
-    modifier onlyFeeCollector() {
-        require(msg.sender == feeCollector, "npt a feeCollector");
-        _;
-    }
 }

@@ -23,6 +23,7 @@ contract SigmaStrategy {
     int24 public maxTwapDeviation;
     uint32 public twapDuration;
     address public keeper;
+    address public feeCollector;
 
     uint256 public lastRebalance;
     int24 public lastTick;
@@ -40,7 +41,8 @@ contract SigmaStrategy {
         int24 _baseThreshold,
         int24 _maxTwapDeviation,
         uint32 _twapDuration,
-        address _keeper
+        address _keeper,
+        address _feeCollector
     ) {
         require(_maxTwapDeviation > 0, "maxTwapDeviation");
         require(_twapDuration > 0, "twapDuration");
@@ -56,6 +58,7 @@ contract SigmaStrategy {
         maxTwapDeviation = _maxTwapDeviation;
         twapDuration = _twapDuration;
         keeper = _keeper;
+        feeCollector = _feeCollector;
 
         (, lastTick, , , , , ) = pool.slot0();
     }
@@ -96,6 +99,10 @@ contract SigmaStrategy {
         lastTick = tick;
     }
 
+    function redeemFees() external onlyFeeCollector 
+    {
+        vault.collectFees(feeCollector);
+    }
     /// @dev Fetches current price in ticks from Uniswap pool.
     function getTick() public view returns (int24 tick) {
         (, tick, , , , , ) = pool.slot0();
@@ -156,6 +163,13 @@ contract SigmaStrategy {
         twapDuration = _twapDuration;
     }
 
+    function setFeeCollector(address _feeCollector)
+        external
+        onlyGovernance
+    {
+        feeCollector = _feeCollector;
+    }
+
     /// @dev Uses same governance as underlying vault.
     modifier onlyGovernance() {
         require(msg.sender == vault.governance(), "governance");
@@ -165,6 +179,11 @@ contract SigmaStrategy {
     /// @dev Uses same governance as underlying vault.
     modifier onlyKeeper() {
         require(msg.sender == keeper, "Not Keeper");
+        _;
+    }
+
+    modifier onlyFeeCollector() {
+        require(msg.sender == feeCollector, "not a feeCollector");
         _;
     }
 }
