@@ -1,6 +1,7 @@
-INFURA_KEY=
+INFURA_KEY= #Used For Deployment
 ETHERSCAN_KEY=
 PRIVATE_KEY=
+ALCHEMY_KEY= #Used for Testing
 
 # Sigma Strategy Details
 UNISWAP_SHARE=

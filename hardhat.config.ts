@@ -48,6 +48,13 @@ export default {
           balance: parseEther('100').toString(),
         },
       ],
+      forking: {
+        url: `https://eth-mainnet.alchemyapi.io/v2/${process.env.ALCHEMY_KEY}`,
+        blockNumber: 13290747,
+      },
+      mining: {
+        auto: true,
+      },
     },
     goerli: {
       url: `https://goerli.infura.io/v3/${process.env.INFURA_KEY}`,
