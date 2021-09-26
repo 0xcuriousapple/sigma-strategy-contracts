@@ -191,8 +191,8 @@ contract SigmaVault is
         // In our case there is no unused amount
         lvTotalDeposited0 = lvTotalDeposited0.add(amount0);
         lvTotalDeposited1 = lvTotalDeposited0.add(amount1);
-        token0.approve(address(lendVault0), amount0);
-        token1.approve(address(lendVault1), amount1);
+        token0.safeApprove(address(lendVault0), amount0);
+        token1.safeApprove(address(lendVault1), amount1);
         lendVault0.deposit(amount0);
         lendVault1.deposit(amount1);
 
@@ -395,8 +395,8 @@ contract SigmaVault is
         uint256 lvDeposit1 = totalAssets1.sub(uniswapDeposit1);
         lvTotalDeposited0 = lvDeposit0;
         lvTotalDeposited1 = lvDeposit1;
-        token0.approve(address(lendVault0), lvDeposit0);
-        token1.approve(address(lendVault1), lvDeposit1);
+        token0.safeApprove(address(lendVault0), lvDeposit0);
+        token1.safeApprove(address(lendVault1), lvDeposit1);
         lendVault0.deposit(lvDeposit1);
         lendVault1.deposit(lvDeposit1);
     }
