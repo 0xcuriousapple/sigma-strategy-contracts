@@ -6,14 +6,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const { deploy, get } = deployments;
 
   const { deployer } = await getNamedAccounts();
-  const {
-    UNISWAP_SHARE,
-    BASE_THRESHOLD,
-    MAX_TWAP_DEVIATION,
-    TWAP_DURATION,
-    KEEEPER,
-    FEE_COLLECTOR,
-  } = process.env;
+  const { UNISWAP_SHARE, MAX_TWAP_DEVIATION, TWAP_DURATION, KEEEPER, FEE_COLLECTOR } = process.env;
 
   const sigmaVault = await get('SigmaVault');
 
@@ -22,7 +15,6 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     args: [
       sigmaVault.address,
       UNISWAP_SHARE,
-      BASE_THRESHOLD,
       MAX_TWAP_DEVIATION,
       TWAP_DURATION,
       KEEEPER,

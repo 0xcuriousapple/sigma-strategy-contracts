@@ -19,7 +19,6 @@ contract SigmaStrategy {
     int24 public tickSpacing;
 
     uint8 public uniswapShare;
-    int24 public baseThreshold; // Why int, why not uint ?
     int24 public maxTwapDeviation;
     uint32 public twapDuration;
     address public keeper;
@@ -30,7 +29,6 @@ contract SigmaStrategy {
 
     /**
      * @param _vault Underlying Sigma Vault
-     * @param _baseThreshold Used to determine base order range
      * @param _maxTwapDeviation Max deviation from TWAP during rebalance
      * @param _twapDuration TWAP duration in seconds for rebalance check
      * @param _keeper Account that can call `rebalance()`
@@ -38,7 +36,6 @@ contract SigmaStrategy {
     constructor(
         address _vault,
         uint8 _uniswapShare,
-        int24 _baseThreshold,
         int24 _maxTwapDeviation,
         uint32 _twapDuration,
         address _keeper,
@@ -50,11 +47,7 @@ contract SigmaStrategy {
         vault = ISigmaVault(_vault);
         pool = IUniswapV3Pool(vault.pool());
         tickSpacing = pool.tickSpacing();
-
-        _checkThreshold(_baseThreshold, tickSpacing);
-
         uniswapShare = _uniswapShare;
-        baseThreshold = _baseThreshold;
         maxTwapDeviation = _maxTwapDeviation;
         twapDuration = _twapDuration;
         keeper = _keeper;
@@ -73,16 +66,16 @@ contract SigmaStrategy {
         // Check price is not too close to min/max allowed by Uniswap. Price
         // shouldn't be this extreme unless something was wrong with the pool.
 
-        int24 _baseThreshold = baseThreshold;
+        // int24 _baseThreshold = baseThreshold;
         int24 tick = getTick();
-        require(
-            tick > TickMath.MIN_TICK + _baseThreshold + tickSpacing,
-            "tick too low"
-        );
-        require(
-            tick < TickMath.MAX_TICK - _baseThreshold - tickSpacing,
-            "tick too high"
-        );
+        // require(
+        //     tick > TickMath.MIN_TICK + _baseThreshold + tickSpacing,
+        //     "tick too low"
+        // );
+        // require(
+        //     tick < TickMath.MAX_TICK - _baseThreshold - tickSpacing,
+        //     "tick too high"
+        // );
 
         // Check price has not moved a lot recently. This mitigates price
         // manipulation during rebalance and also prevents placing orders
@@ -143,11 +136,6 @@ contract SigmaStrategy {
     function setUniSwapShare(uint8 _uniswapShare) external onlyGovernance {
         require(_uniswapShare <= 100, "share exceeds 100");
         uniswapShare = _uniswapShare;
-    }
-
-    function setBaseThreshold(int24 _baseThreshold) external onlyGovernance {
-        _checkThreshold(_baseThreshold, tickSpacing);
-        baseThreshold = _baseThreshold;
     }
 
     function setMaxTwapDeviation(int24 _maxTwapDeviation)
