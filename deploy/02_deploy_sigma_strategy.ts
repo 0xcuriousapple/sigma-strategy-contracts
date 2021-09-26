@@ -10,6 +10,9 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
 
   const sigmaVault = await get('SigmaVault');
 
+  const signers = await hre.ethers.getSigners();
+  const keeperAddress = KEEEPER ? KEEEPER : signers[0].address;
+  const feeCollector = FEE_COLLECTOR ? FEE_COLLECTOR : signers[1].address;
   await deploy('SigmaStrategy', {
     from: deployer,
     args: [
@@ -17,8 +20,8 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
       UNISWAP_SHARE,
       MAX_TWAP_DEVIATION,
       TWAP_DURATION,
-      KEEEPER,
-      FEE_COLLECTOR,
+      keeperAddress,
+      feeCollector,
     ],
     log: true,
   });
