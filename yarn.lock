@@ -748,6 +748,25 @@
   dependencies:
     defer-to-connect "^1.0.1"
 
+"@thanpolas/crypto-utils@^0.3.1":
+  version "0.3.1"
+  resolved "https://registry.yarnpkg.com/@thanpolas/crypto-utils/-/crypto-utils-0.3.1.tgz#d9c355ccf78c77ee26393bb0a3f2e063d6a0e813"
+  integrity sha512-qRtie9k4E3uLXS9lMXdKohL8P2pX1m7wNFnTl6B4b8BuhSbDHcW7GWs09KjyFSbKcSpfsyCeumD/ScQhK02/CQ==
+  dependencies:
+    decimal.js "^10.3.1"
+    invariant "^2.2.4"
+    jsbi "^3.1.6"
+    toformat "^2.0.0"
+
+"@thanpolas/univ3prices@^3.0.2":
+  version "3.0.2"
+  resolved "https://registry.yarnpkg.com/@thanpolas/univ3prices/-/univ3prices-3.0.2.tgz#6fc7002802af3302bf44193dfffbd1958d1868b7"
+  integrity sha512-ExjbTUAQpeD/e7zLUIkGNYd3bcVCdNrGMF4pJeqCVitKxzNHYfMqzawUWOewLmq7t80p+Xa+XwAsweGSG3lqNQ==
+  dependencies:
+    "@thanpolas/crypto-utils" "^0.3.1"
+    invariant "^2.2.4"
+    jsbi "^3.2.2"
+
 "@truffle/error@^0.0.14":
   version "0.0.14"
   resolved "https://registry.yarnpkg.com/@truffle/error/-/error-0.0.14.tgz#59683b5407bede7bddf16d80dc5592f9c5e5fa05"
@@ -2863,6 +2882,11 @@ decamelize@^4.0.0:
   version "4.0.0"
   resolved "https://registry.yarnpkg.com/decamelize/-/decamelize-4.0.0.tgz#aa472d7bf660eb15f3494efd531cab7f2a709837"
   integrity sha512-9iE1PgSik9HeIIw2JO94IidnE3eBoQrFJ3w7sFuzSX4DpmZ3v5sZpUiV5Swcf6mQEF+Y0ru8Neo+p+nyh2J+hQ==
+
+decimal.js@^10.3.1:
+  version "10.3.1"
+  resolved "https://registry.yarnpkg.com/decimal.js/-/decimal.js-10.3.1.tgz#d8c3a444a9c6774ba60ca6ad7261c3a94fd5e783"
+  integrity sha512-V0pfhfr8suzyPGOx3nmq4aHqabehUZn6Ch9kyFpV79TGDTWFmHqUqXdabR7QHqxzrYolF4+tVmJhUG4OURg5dQ==
 
 decode-uri-component@^0.2.0:
   version "0.2.0"
@@ -5141,7 +5165,7 @@ interpret@^1.0.0:
   resolved "https://registry.yarnpkg.com/interpret/-/interpret-1.4.0.tgz#665ab8bc4da27a774a40584e812e3e0fa45b1a1e"
   integrity sha512-agE4QfB2Lkp9uICn7BAqoscw4SZP9kTE2hxiFI3jBPmXJfdqiahTbUuKGsMoN2GtqL9AxhYioAcVvgsb1HvRbA==
 
-invariant@^2.2.2:
+invariant@^2.2.2, invariant@^2.2.4:
   version "2.2.4"
   resolved "https://registry.yarnpkg.com/invariant/-/invariant-2.2.4.tgz#610f3c92c9359ce1db616e538008d23ff35158e6"
   integrity sha512-phJfQVBuaJM5raOpJjSfkiD6BpbCE4Ns//LaXl6wGYtUBY83nWS6Rf9tXm2e8VaK60JEjYldbPif/A2B1C2gNA==
@@ -5568,6 +5592,11 @@ js-yaml@4.1.0:
   integrity sha512-wpxZs9NoxZaJESJGIZTyDEaYpl0FKSA+FB9aJiyemKhMwkxQg63h4T1KJgUGHpTqPDNRcmmYLugrRjJlBtWvRA==
   dependencies:
     argparse "^2.0.1"
+
+jsbi@^3.1.6, jsbi@^3.2.2:
+  version "3.2.4"
+  resolved "https://registry.yarnpkg.com/jsbi/-/jsbi-3.2.4.tgz#aba5b77a14d7f546adc0bd17ab82c07e29f54e91"
+  integrity sha512-iOygwxPzMYli5xrjfd83Vy4Wyu9Ovpw6wWWFy5Kj7XP+pZxPp7Cy72F92iAt2j+6tTDYunvLtC+2tH3xCX37ng==
 
 jsbn@~0.1.0:
   version "0.1.1"
@@ -8734,6 +8763,11 @@ to-regex@^3.0.1, to-regex@^3.0.2:
     extend-shallow "^3.0.2"
     regex-not "^1.0.2"
     safe-regex "^1.1.0"
+
+toformat@^2.0.0:
+  version "2.0.0"
+  resolved "https://registry.yarnpkg.com/toformat/-/toformat-2.0.0.tgz#7a043fd2dfbe9021a4e36e508835ba32056739d8"
+  integrity sha512-03SWBVop6nU8bpyZCx7SodpYznbZF5R4ljwNLBcTQzKOD9xuihRo/psX58llS1BMFhhAI08H3luot5GoXJz2pQ==
 
 toidentifier@1.0.0:
   version "1.0.0"
