@@ -1,5 +1,7 @@
 # Sigma Strategy
 
+![build](https://github.com/Anon-Farm/sigma-strategy-contracts/actions/workflows/main.yml/badge.svg)
+
 Strategy built on top of Uni v3 and Yearn <br>
 https://hackmd.io/@134dd3v/SkVUgYQZt
 

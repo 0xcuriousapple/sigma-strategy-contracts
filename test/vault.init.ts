@@ -1,9 +1,8 @@
 import { expect } from './utils/chai-setup';
 import { toBigNumber } from './utils/helpers';
 import { ethers, deployments } from 'hardhat';
-import { config } from 'dotenv';
-config();
-const { POOL, LEND_VAULT0, LEND_VAULT1, PROTOCOL_FEE, MAX_TOTAL_SUPPLY } = process.env;
+import { SigmaVaultDetails } from '../constants.json';
+const { POOL, LEND_VAULT0, LEND_VAULT1, PROTOCOL_FEE, MAX_TOTAL_SUPPLY } = SigmaVaultDetails;
 describe('SigmaVault', function () {
   it('Vault should have been initilized correctly', async function () {
     await deployments.fixture(['SigmaVault', 'SigmaStrategy', 'PostDeploymentSetup']);

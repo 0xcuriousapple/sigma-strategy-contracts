@@ -1,9 +1,10 @@
 import { expect } from './utils/chai-setup';
 import { toBigNumber } from './utils/helpers';
 import { ethers, deployments } from 'hardhat';
-import { config } from 'dotenv';
-config();
-const { UNISWAP_SHARE, MAX_TWAP_DEVIATION, TWAP_DURATION, KEEEPER, FEE_COLLECTOR } = process.env;
+import { SigmaStrategyDetails } from '../constants.json';
+const { UNISWAP_SHARE, MAX_TWAP_DEVIATION, TWAP_DURATION, KEEEPER, FEE_COLLECTOR } =
+  SigmaStrategyDetails;
+
 describe('SigmaStrategy', function () {
   it('Stretegy should have been initilized correctly', async function () {
     await deployments.fixture(['SigmaVault', 'SigmaStrategy']);

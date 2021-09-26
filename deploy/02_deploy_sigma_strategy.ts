@@ -1,12 +1,13 @@
 import { HardhatRuntimeEnvironment } from 'hardhat/types';
 import { DeployFunction } from 'hardhat-deploy/types';
-
+import { SigmaStrategyDetails } from '../constants.json';
 const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const { deployments, getNamedAccounts } = hre;
   const { deploy, get } = deployments;
 
   const { deployer } = await getNamedAccounts();
-  const { UNISWAP_SHARE, MAX_TWAP_DEVIATION, TWAP_DURATION, KEEEPER, FEE_COLLECTOR } = process.env;
+  const { UNISWAP_SHARE, MAX_TWAP_DEVIATION, TWAP_DURATION, KEEEPER, FEE_COLLECTOR } =
+    SigmaStrategyDetails;
 
   const sigmaVault = await get('SigmaVault');
 
