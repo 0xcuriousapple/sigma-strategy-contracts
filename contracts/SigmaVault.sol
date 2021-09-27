@@ -718,19 +718,25 @@ contract SigmaVault is
     /**
      * @notice Removes liquidity in case of emergency.
      */
-    function emergencyBurn(
-        int24 tickLower,
-        int24 tickUpper,
-        uint128 liquidity
-    ) external onlyGovernanceOrTeamMultisig {
-        pool.burn(tickLower, tickUpper, liquidity);
+    function emergencyBurn() external onlyGovernanceOrTeamMultisig {
+        (uint128 totalLiquidity, , , , ) = _position(tick_lower, tick_upper);
+        pool.burn(tick_lower, tick_upper, totalLiquidity);
         pool.collect(
             address(this),
-            tickLower,
-            tickUpper,
+            tick_lower,
+            tick_upper,
             type(uint128).max,
             type(uint128).max
         );
+    }
+
+    function emergencyWithdrawL0() external onlyGovernanceOrTeamMultisig
+    {
+        lendVault0.withdraw();
+    }
+    function emergencyWithdrawL1() external onlyGovernanceOrTeamMultisig
+    {
+        lendVault1.withdraw();
     }
 
     modifier onlyStrategy() {
