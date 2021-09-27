@@ -9,6 +9,7 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/utils/Pausable.sol";
 
 // UNI
 import "@uniswap/v3-core/contracts/interfaces/callback/IUniswapV3MintCallback.sol";
@@ -40,7 +41,8 @@ contract SigmaVault is
     IUniswapV3SwapCallback,
     ERC20,
     ReentrancyGuard,
-    Governable
+    Governable,
+    Pausable
 {
     using SafeERC20 for IERC20;
     using SafeMath for uint256;
@@ -153,6 +155,7 @@ contract SigmaVault is
     )
         external
         nonReentrant
+        whenNotPaused
         returns (
             uint256 shares,
             uint256 amount0,
@@ -317,7 +320,7 @@ contract SigmaVault is
     /**
      * @notice Updates vault's positions. Can only be called by the strategy.
      */
-    function rebalance(uint8 uniswapShare) external nonReentrant onlyStrategy {
+    function rebalance(uint8 uniswapShare) external whenNotPaused nonReentrant onlyStrategy {
         // Step 1 : Withdraw
         {
             (uint128 totalLiquidity, , , , ) = _position(
@@ -669,7 +672,7 @@ contract SigmaVault is
     }
 
     /**
-     * @notice Removes tokens accidentally sent to this vault.
+     * @notice Removes other tokens accidentally sent to this vault.
      */
     function sweep(
         IERC20 token,
@@ -739,6 +742,13 @@ contract SigmaVault is
         lendVault1.withdraw();
     }
 
+    function pause() external onlyGovernanceOrTeamMultisig{
+        Pausable._pause();
+    }
+
+    function unpause() external onlyGovernanceOrTeamMultisig{
+        Pausable._unpause();
+    }
     modifier onlyStrategy() {
         require(msg.sender == strategy, "not a strategy");
         _;
