@@ -3,6 +3,7 @@
     "UNISWAP_SHARE": "10",
     "MAX_TWAP_DEVIATION": "100",
     "TWAP_DURATION": "60",
+    "REBALANCE_GAP": "86400",
     "KEEEPER": "",
     "FEE_COLLECTOR": ""
   },

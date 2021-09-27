@@ -25,6 +25,7 @@ contract SigmaStrategy {
     address public feeCollector;
 
     uint256 public lastRebalance;
+    uint32 public rebalanceGap;
     int24 public lastTick;
 
     /**
@@ -38,6 +39,7 @@ contract SigmaStrategy {
         uint8 _uniswapShare,
         int24 _maxTwapDeviation,
         uint32 _twapDuration,
+        uint32 _rebalanceGap,
         address _keeper,
         address _feeCollector
     ) {
@@ -50,6 +52,7 @@ contract SigmaStrategy {
         uniswapShare = _uniswapShare;
         maxTwapDeviation = _maxTwapDeviation;
         twapDuration = _twapDuration;
+        rebalanceGap = _rebalanceGap;
         keeper = _keeper;
         feeCollector = _feeCollector;
 
@@ -61,6 +64,8 @@ contract SigmaStrategy {
      * so that vault can update its positions. Can only be called by keeper.
      */
     function rebalance() external onlyKeeper {
+
+        require(block.timestamp - lastRebalance >= rebalanceGap, "Premature Rebalance");
         // TODO : Do we have to do follwoing ?
 
         // Check price is not too close to min/max allowed by Uniswap. Price
@@ -149,6 +154,10 @@ contract SigmaStrategy {
     function setTwapDuration(uint32 _twapDuration) external onlyGovernance {
         require(_twapDuration > 0, "twapDuration");
         twapDuration = _twapDuration;
+    }
+
+    function setRebalanceGap(uint32 _rebalanceGap) external onlyGovernance {
+        rebalanceGap = _rebalanceGap;
     }
 
     function setFeeCollector(address _feeCollector)

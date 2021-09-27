@@ -6,8 +6,14 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const { deploy, get } = deployments;
 
   const { deployer } = await getNamedAccounts();
-  const { UNISWAP_SHARE, MAX_TWAP_DEVIATION, TWAP_DURATION, KEEEPER, FEE_COLLECTOR } =
-    SigmaStrategyDetails;
+  const {
+    UNISWAP_SHARE,
+    MAX_TWAP_DEVIATION,
+    TWAP_DURATION,
+    REBALANCE_GAP,
+    KEEEPER,
+    FEE_COLLECTOR,
+  } = SigmaStrategyDetails;
 
   const sigmaVault = await get('SigmaVault');
 
@@ -21,6 +27,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
       UNISWAP_SHARE,
       MAX_TWAP_DEVIATION,
       TWAP_DURATION,
+      REBALANCE_GAP,
       keeperAddress,
       feeCollector,
     ],
