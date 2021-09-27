@@ -9,6 +9,7 @@ import '@nomiclabs/hardhat-etherscan';
 import '@nomiclabs/hardhat-ethers';
 import { parseEther } from '@ethersproject/units';
 import { ethers } from 'ethers';
+import 'solidity-coverage';
 config();
 
 // This is a sample Hardhat task. To learn how to create your own go to

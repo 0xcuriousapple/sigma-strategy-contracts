@@ -1,5 +1,4 @@
 const hre = require('hardhat');
-import { Console } from 'console';
 import { erc20ABI } from './abis';
 import { tokenAmount } from './helpers';
 
@@ -15,6 +14,10 @@ const stealFunds = async (zeroOrOne: number, address: string, amount: string) =>
       params: [wETHwhale],
     });
     const signer = await hre.ethers.getSigner(wETHwhale);
+    await hre.network.provider.send('hardhat_setBalance', [
+      signer.address,
+      '0x1000000000000000000',
+    ]);
     const token0 = new hre.ethers.Contract(wETHaddress, erc20ABI, signer);
     await token0.transfer(address, tokenAmount(amount, 18));
   } else {
@@ -23,6 +26,7 @@ const stealFunds = async (zeroOrOne: number, address: string, amount: string) =>
       params: [USDTwhale],
     });
     const signer = await hre.ethers.getSigner(USDTwhale);
+    await hre.network.provider.send('hardhat_setBalance', [signer.address, '0x100000000000000000']);
     const token1 = new hre.ethers.Contract(USDTAddress, erc20ABI, signer);
     await token1.transfer(address, tokenAmount(amount, 6));
   }
