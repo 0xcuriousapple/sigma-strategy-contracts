@@ -27,6 +27,7 @@ import "./interfaces/YearnVaultAPI.sol";
 
 import "./utils/Governable.sol";
 
+import "hardhat/console.sol";
 // Code borrowed and modified from https://github.com/charmfinance/alpha-vaults-contracts/blob/main/contracts/AlphaVault.sol
 
 /**
@@ -79,11 +80,13 @@ contract SigmaVault is
     IUniswapV3Pool public immutable pool;
     IERC20 public immutable token0;
     IERC20 public immutable token1;
+    uint8 public immutable token0Decimals;
+    uint8 public immutable token1Decimals;
     int24 public immutable tickSpacing;
 
     struct lv{
-        uint256 withdraw0; 
-        uint256 withdraw1; 
+        uint256 yShares0; 
+        uint256 yShares1; 
         uint256 deposited0; 
         uint256 deposited1; 
     }
@@ -120,8 +123,14 @@ contract SigmaVault is
         require(_protocolFee < 1e6, "protocolFee");
 
         pool = IUniswapV3Pool(_pool);
-        token0 = IERC20(IUniswapV3Pool(_pool).token0());
-        token1 = IERC20(IUniswapV3Pool(_pool).token1());
+        address token0Address = IUniswapV3Pool(_pool).token0();
+        address token1Address = IUniswapV3Pool(_pool).token1();
+
+        token0 = IERC20(token0Address);
+        token1 = IERC20(token1Address);
+        token0Decimals = _getDecimals(token0Address);
+        token1Decimals = _getDecimals(token1Address);
+
         tickSpacing = IUniswapV3Pool(_pool).tickSpacing();
 
         lendVault0 = VaultAPI(_lendVault0);
@@ -131,6 +140,12 @@ contract SigmaVault is
         maxTotalSupply = _maxTotalSupply;
     }
 
+    function _getDecimals(address _tokenAddress) internal view returns(uint8)
+    {
+        (bool success, bytes memory data)  = address(_tokenAddress).staticcall(abi.encode(bytes4(keccak256("decimals()"))));
+        require(success && data.length >= 1);
+        return abi.decode(data, (uint8));
+    }
     /**
      * @notice Deposits tokens in proportion to the vault's current holdings.
      * @dev These tokens sit in the vault and are not used for liquidity on
@@ -176,6 +191,7 @@ contract SigmaVault is
             amount0Desired,
             amount1Desired
         );
+        // console.log("Deposit Actual :", amount0, amount1);
         require(shares > 0, "shares");
         require(amount0 >= amount0Min, "amount0Min");
         require(amount1 >= amount1Min, "amount1Min");
@@ -189,11 +205,11 @@ contract SigmaVault is
             token0.safeTransferFrom(msg.sender, address(this), amount0);
         if (amount1 > 0)
             token1.safeTransferFrom(msg.sender, address(this), amount1);
-
+     
         // Yearn Deposit
         // In our case there is no unused amount
         lvTotalDeposited0 = lvTotalDeposited0.add(amount0);
-        lvTotalDeposited1 = lvTotalDeposited0.add(amount1);
+        lvTotalDeposited1 = lvTotalDeposited1.add(amount1);
         token0.safeApprove(address(lendVault0), amount0);
         token1.safeApprove(address(lendVault1), amount1);
         lendVault0.deposit(amount0);
@@ -289,20 +305,16 @@ contract SigmaVault is
             (uint256(totalLiquidity).mul(shares)).div(totalSupply)
         );
 
-        uint256 lvTotal0 = (lendVault0.balanceOf(address(this))).mul(
-            lendVault0.pricePerShare()
-        );
-        uint256 lvTotal1 = lendVault0.balanceOf(address(this)).mul(
-            lendVault1.pricePerShare()
-        );
+        uint256 yTotalShares0 = lendVault0.balanceOf(address(this));
+        uint256 yTotalShares1 = lendVault0.balanceOf(address(this));
 
         
-        lv memory _lv;
-        _lv.withdraw0 =  (lvTotal0.mul(shares)).div(totalSupply);
-        _lv.withdraw1 =     (lvTotal1.mul(shares)).div(totalSupply);
+         lv memory _lv;
+        _lv.yShares0 =  (yTotalShares0.mul(shares)).div(totalSupply);
+        _lv.yShares1 =     (yTotalShares1.mul(shares)).div(totalSupply);
         _lv.deposited0 =  (lvTotalDeposited0.mul(shares)).div(totalSupply);
         _lv.deposited1 =     (lvTotalDeposited1.mul(shares)).div(totalSupply);
-     
+
         (amount0, amount1) = 
         _withdraw(_toUint128(liquidity), _lv);
 
@@ -327,16 +339,12 @@ contract SigmaVault is
                 tick_lower,
                 tick_upper
             );
-            uint256 lvTotal0 = lendVault0.balanceOf(address(this)).mul(
-                lendVault0.pricePerShare()
-            );
-            uint256 lvTotal1 = lendVault0.balanceOf(address(this)).mul(
-                lendVault1.pricePerShare()
-            );
+            uint256 yTotalShares0 = lendVault0.balanceOf(address(this));
+            uint256 yTotalShares1 = lendVault1.balanceOf(address(this));
             
             lv memory _lv;
-            _lv.withdraw0 = lvTotal0;
-            _lv.withdraw1 = lvTotal1;
+            _lv.yShares0 = yTotalShares0;
+            _lv.yShares1 = yTotalShares1;
             _lv.deposited0 = lvTotalDeposited0;
             _lv.deposited1 = lvTotalDeposited1;
             _withdraw(totalLiquidity, _lv);
@@ -346,9 +354,11 @@ contract SigmaVault is
 
         uint256 totalAssets0 = getBalance0();
         uint256 totalAssets1 = getBalance1();
-
+        // console.log("Total Assets before swap", totalAssets0, totalAssets1);
         _swapExcess(totalAssets0, totalAssets1);
-
+        totalAssets0 = getBalance0();
+        totalAssets1 = getBalance1();
+        // console.log("Total Assets after swap", totalAssets0, totalAssets1);
         (uint160 sqrtPriceCurrent, , , , , , ) = pool.slot0();
 
 
@@ -356,14 +366,15 @@ contract SigmaVault is
         // Uniswap
         uint160 infinity = uint160(uint256(1 << 160) - 1);
 
+        
         uint128 liq0 = LiquidityAmounts.getLiquidityForAmount0(
-            0,
-            sqrtPriceCurrent,
+           sqrtPriceCurrent,
+            infinity,
             totalAssets0
         );
         uint128 liq1 = LiquidityAmounts.getLiquidityForAmount1(
+            0,
             sqrtPriceCurrent,
-            infinity,
             totalAssets1
         );
         uint128 liq = liq0 > liq1 ? liq1 : liq0;
@@ -371,7 +382,18 @@ contract SigmaVault is
         uint256 uniswapDeposit0 = (totalAssets0.mul(uniswapShare)).div(100);
         uint256 uniswapDeposit1 = (totalAssets1.mul(uniswapShare)).div(100);
 
+        // console.log("Uniswap Share0",uniswapDeposit0);
+        // console.log("Uniswap Share1",uniswapDeposit1);
         uint160 sqrtPriceUpper = SqrtPriceMath
+            .getNextSqrtPriceFromAmount1RoundingDown(
+                sqrtPriceCurrent,
+                liq,
+                uniswapDeposit1,
+                true
+            );
+           
+
+        uint160 sqrtPriceLower = SqrtPriceMath
             .getNextSqrtPriceFromAmount0RoundingUp(
                 sqrtPriceCurrent,
                 liq,
@@ -379,65 +401,113 @@ contract SigmaVault is
                 true
             );
 
-        uint160 sqrtPriceLower = SqrtPriceMath
-            .getNextSqrtPriceFromAmount1RoundingDown(
-                sqrtPriceCurrent,
-                liq,
-                uniswapDeposit1,
-                true
-            );
-
-        tick_lower = TickMath.getTickAtSqrtRatio(sqrtPriceLower);
-        tick_upper = TickMath.getTickAtSqrtRatio(sqrtPriceUpper);
+        tick_lower = _adjustTick(TickMath.getTickAtSqrtRatio(sqrtPriceLower));
+        tick_upper = _adjustTick(TickMath.getTickAtSqrtRatio(sqrtPriceUpper));
 
         _checkRange(tick_lower, tick_upper);
         _mintLiquidity(tick_lower, tick_upper, liq);
 
         // Yearn
-        uint256 lvDeposit0 = totalAssets0.sub(uniswapDeposit0);
-        uint256 lvDeposit1 = totalAssets1.sub(uniswapDeposit1);
-        lvTotalDeposited0 = lvDeposit0;
-        lvTotalDeposited1 = lvDeposit1;
-        token0.safeApprove(address(lendVault0), lvDeposit0);
-        token1.safeApprove(address(lendVault1), lvDeposit1);
-        lendVault0.deposit(lvDeposit1);
-        lendVault1.deposit(lvDeposit1);
+        totalAssets0 = getBalance0();
+        totalAssets1 = getBalance1();
+        lvTotalDeposited0 = totalAssets0;
+        lvTotalDeposited1 = totalAssets1;
+        // console.log("Funds Depited to Yearn",lvTotalDeposited0, lvTotalDeposited1);
+        token0.safeApprove(address(lendVault0), totalAssets0);
+        token1.safeApprove(address(lendVault1), totalAssets1);
+        lendVault0.deposit(totalAssets0);
+        lendVault1.deposit(totalAssets1);
+    }   
+
+    function _adjustTick(int24 actualTick) internal view returns(int24 adjusedTick)
+    {
+        int24 floorDown = (actualTick/tickSpacing) * tickSpacing; // TODO : Safemath not enabled for int24, can this under,overflow
+        int24 floorUp = floorDown + tickSpacing;
+        
+        //floorDown ---- actual ---- floorUp
+        if(actualTick - floorDown > floorUp - actualTick )
+        {
+            adjusedTick = floorUp;
+        }
+        else
+        {
+            adjusedTick = floorDown;
+        }
     }
 
     function _swapExcess(uint256 totalAssets0, uint256 totalAssets1) internal {
-        // Swap Excess
-        (uint160 sqrtPriceCurrent, , , , , uint8 feeProtocol, ) = pool.slot0();
+        // // Swap Excess
+        uint256 priceX96 = _getTwap();
+        // console.log("Price", FullMath.mulDiv(priceX96, 1e18, FixedPoint96.Q96));
+        uint256 total0ValueIn1 = FullMath.mulDiv(totalAssets0, priceX96, FixedPoint96.Q96);
+        uint256 total1ValueIn0 = FullMath.mulDiv(totalAssets1, FixedPoint96.Q96, priceX96);
 
-        uint256 total0ValueIn1 = totalAssets0.mul(sqrtPriceCurrent); // TODO : TWAP
-        uint256 total1ValueIn0 = totalAssets1.div(sqrtPriceCurrent);
-        uint256 feeTier = feeProtocol; // Todo : fee protocol is saved as 1/x %, will update it accordingly
-
+        // console.log("Asset0", totalAssets0,total0ValueIn1, priceX96);
+        // console.log("Asset1", totalAssets1,total1ValueIn0, priceX96);
         if (total0ValueIn1 > totalAssets1) {
             //token0 is in excess
             //Swap excess token0 into token1
-            uint256 totalExcessIn0 = totalAssets0.sub(total1ValueIn0);
-            uint256 swapAmount = totalExcessIn0.div(2 * (1 - feeTier));
-            pool.swap(
-                address(this),
-                true,
-                int256(swapAmount),
-                sqrtPriceCurrent, // TODO : LIMIT, how to handle so
-                ""
-            );
+            _swap0to1(total0ValueIn1, totalAssets1,priceX96);
+            
         } else if (total1ValueIn0 > totalAssets0) {
             //token1 is in excess
             //Swap excess token1 into token0
-            uint256 totalExcessIn1 = totalAssets1.sub(total0ValueIn1);
-            uint256 swapAmount = totalExcessIn1.div(2 * (1 - feeTier));
-            pool.swap(
-                address(this),
-                false,
-                int256(swapAmount),
-                sqrtPriceCurrent, // TODO : LIMIT, how to handle so
-                ""
-            );
+            _swap1to0(total1ValueIn0, totalAssets0,priceX96);
         }
     }
+    
+    function _swap0to1(uint256 total0ValueIn1, uint256 totalAssets1, uint256 priceX96) internal 
+    {       
+        (uint160 sqrtPriceCurrent, , , , , , ) = pool.slot0();
+        uint24 fee = pool.fee();
+            
+        uint256 totalExcess0InTermsOf1 = total0ValueIn1.sub(totalAssets1);  
+        uint256 totalExcess0 = FullMath.mulDiv(totalExcess0InTermsOf1, FixedPoint96.Q96, priceX96);
+        uint256 swapAmount = FullMath.mulDiv(totalExcess0, 1e6, 2*(1e6-fee));
+        pool.swap(
+            address(this),
+            true,
+            int256(swapAmount),
+            uint160(((uint256(sqrtPriceCurrent)).mul(90)).div(100)), // TODO : default, 0, sqrtPriceLimit => do we want to set so ?
+            ""
+        );
+    }
+
+    function _swap1to0(uint256 total1ValueIn0, uint256 totalAssets0, uint256 priceX96) internal 
+    {   
+        (uint160 sqrtPriceCurrent, , , , , , ) = pool.slot0();
+        uint24 fee = pool.fee();
+
+        uint256 totalExcess1InTermsOf0 = total1ValueIn0.sub(totalAssets0);
+        uint256 totalExcess1 = FullMath.mulDiv(totalExcess1InTermsOf0,priceX96,FixedPoint96.Q96);
+        uint256 swapAmount = totalExcess1.div(FullMath.mulDiv(2, 1e6 - fee, 1e6));
+        pool.swap(
+            address(this),
+            false,
+            int256(swapAmount),
+            uint160(((uint256(sqrtPriceCurrent)).mul(110)).div(100)), // TODO : default, 0, sqrtPriceLimit => do we want to set so ?
+            ""
+        );
+    }
+    /// @dev Fetches time-weighted average price 
+    // TODO : Make internal, have kept public for testing
+    function _getTwap() public view returns (uint256) {
+        uint32 _twapDuration = 60;
+        uint32[] memory secondsAgo = new uint32[](2);
+        secondsAgo[0] = _twapDuration;
+        secondsAgo[1] = 0;
+
+        (int56[] memory tickCumulatives, ) = pool.observe(secondsAgo);
+        
+        uint160 sqrtPriceX96 = TickMath.getSqrtRatioAtTick(
+                int24((tickCumulatives[1] - tickCumulatives[0]) / _twapDuration)
+        );
+        uint256 priceX96 = FullMath.mulDiv(sqrtPriceX96, sqrtPriceX96, FixedPoint96.Q96);
+        return priceX96 ;
+        
+        //FullMath.mulDiv(priceX96, 10 ** token0Decimals, FixedPoint96.Q96);
+    }
+
     function _checkRange(int24 tickLower, int24 tickUpper) internal view {
         int24 _tickSpacing = tickSpacing;
         require(tickLower < tickUpper, "tickLower < tickUpper");
@@ -445,15 +515,6 @@ contract SigmaVault is
         require(tickUpper <= TickMath.MAX_TICK, "tickUpper too high");
         require(tickLower % _tickSpacing == 0, "tickLower % tickSpacing");
         require(tickUpper % _tickSpacing == 0, "tickUpper % tickSpacing");
-    }
-
-    function _lvWithdraw(
-       lv memory _lv
-    ) internal returns (uint256 lvGain0, uint256 lvGain1) {
-        lendVault0.withdraw(_lv.withdraw0);
-        lendVault1.withdraw(_lv.withdraw1);
-        lvGain0 = _lv.withdraw0 > _lv.deposited0 ? _lv.withdraw0 -  _lv.deposited0 : 0;
-        lvGain1 = _lv.withdraw1 > _lv.deposited1 ? _lv.withdraw1 - _lv.deposited1 : 0;
     }
 
     function _withdraw(
@@ -465,22 +526,34 @@ contract SigmaVault is
             uint256 amount0,
             uint256 amount1
         )
-    {
+    {   
+        
         (uint256 uni0Withdrawn, uint256 uni1Withdrawn, uint256 uniGain0, uint256 uniGain1) = _uniBurnAndCollect(
             tick_lower,
             tick_upper,
             _toUint128(liquidity)
         );
-        (uint256 lvGain0, uint256 lvGain1) = _lvWithdraw(
+
+        // console.log("Withdraw");
+        // console.log("Liq:",  liquidity);
+        // console.log("uni0Withdrawn: ", uni0Withdrawn);
+        // console.log("uni1Withdrawn: ", uni1Withdrawn);
+        // console.log("yShares0: ", _lv.yShares0);
+        // console.log("yShares1: ",_lv.yShares1);
+        // console.log("lvDeposited0: ",_lv.deposited0);
+        // console.log("lvDeposited1: ",_lv.deposited1);
+
+        (uint256 lvWithdraw0, uint256 lvWithdraw1, uint256 lvGain0, uint256 lvGain1) = _lvWithdraw(
           _lv
         );
+       
         (uint256 gain0, uint256 gain1) = _accureFees(
             uniGain0.add(lvGain0),
             uniGain1.add(lvGain1)
         );
         // Review : the gains are divided twice in case of charm, once in liq, once here again, we need to chececk if thats neededs
-        amount0 = uni0Withdrawn.add(_lv.withdraw0).add(gain0);
-        amount1 = uni1Withdrawn.add(_lv.withdraw1).add(gain1);
+        amount0 = uni0Withdrawn.add(lvWithdraw0).add(gain0);
+        amount1 = uni1Withdrawn.add(lvWithdraw1).add(gain1);
     }
 
     /// @dev Withdraws liquidity from uniswap with fees
@@ -506,6 +579,14 @@ contract SigmaVault is
         uniGain1 = collect1.sub(uni1Withdrwn);
     }
 
+     function _lvWithdraw(
+       lv memory _lv
+    ) internal returns (uint256 lvWithdraw0, uint256 lvWithdraw1, uint256 lvGain0, uint256 lvGain1) {
+        lvWithdraw0 = lendVault0.withdraw(_lv.yShares0); // max loss  # 0.01% 
+        lvWithdraw1 = lendVault1.withdraw(_lv.yShares1);
+        lvGain0 = lvWithdraw0 > _lv.deposited0 ? lvWithdraw0 -  _lv.deposited0 : 0;
+        lvGain1 = lvWithdraw1 > _lv.deposited1 ? lvWithdraw1 - _lv.deposited1 : 0;
+    }
     function _accureFees(uint256 totalGain0, uint256 totalGain1)
         internal
         returns (uint256 gain0, uint256 gain1)
@@ -646,6 +727,7 @@ contract SigmaVault is
         bytes calldata data
     ) external override {
         require(msg.sender == address(pool));
+        // console.log("Liquidity provided for uniswap", amount0, amount1);
         if (amount0 > 0) token0.safeTransfer(msg.sender, amount0);
         if (amount1 > 0) token1.safeTransfer(msg.sender, amount1);
     }
@@ -657,6 +739,7 @@ contract SigmaVault is
         bytes calldata data
     ) external override {
         require(msg.sender == address(pool));
+        // console.log("Swap callback", uint256(amount0Delta), uint256(amount1Delta));
         if (amount0Delta > 0)
             token0.safeTransfer(msg.sender, uint256(amount0Delta));
         if (amount1Delta > 0)
