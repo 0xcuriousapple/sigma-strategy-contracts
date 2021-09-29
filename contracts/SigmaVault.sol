@@ -302,9 +302,9 @@ contract SigmaVault is
         );
 
         uint256 yTotalShares0 = lendVault0.balanceOf(address(this));
-        uint256 yTotalShares1 = lendVault0.balanceOf(address(this));
+        uint256 yTotalShares1 = lendVault1.balanceOf(address(this));
 
-        
+        console.log('yTotalShares', yTotalShares0, yTotalShares1);
          lv memory _lv;
         _lv.yShares0 =  (yTotalShares0.mul(shares)).div(totalSupply);
         _lv.yShares1 =     (yTotalShares1.mul(shares)).div(totalSupply);
@@ -576,6 +576,7 @@ contract SigmaVault is
      function _lvWithdraw(
        lv memory _lv
     ) internal returns (uint256 lvWithdraw0, uint256 lvWithdraw1, uint256 lvGain0, uint256 lvGain1) {
+        console.log(_lv.yShares0, _lv.yShares1);
         lvWithdraw0 = lendVault0.withdraw(_lv.yShares0); // max loss  # 0.01% 
         lvWithdraw1 = lendVault1.withdraw(_lv.yShares1);
         lvGain0 = lvWithdraw0 > _lv.deposited0 ? lvWithdraw0 -  _lv.deposited0 : 0;
@@ -584,7 +585,8 @@ contract SigmaVault is
     function _accureFees(uint256 totalGain0, uint256 totalGain1)
         internal
         returns (uint256 gain0, uint256 gain1)
-    {
+    {   
+        console.log("totalGain",totalGain0, totalGain1);
         uint256 feesToProtocol0;
         uint256 feesToProtocol1;
         if (protocolFee > 0) {

@@ -1,6 +1,6 @@
 import { ethers, deployments } from 'hardhat';
 
-describe('SigmaVault', function () {
+describe('SigmaStrategy', function () {
   it('Rebalance', async function () {
     const SigmaVault = await ethers.getContract('SigmaVault');
     const SigmaStrategy = await ethers.getContract('SigmaStrategy');
