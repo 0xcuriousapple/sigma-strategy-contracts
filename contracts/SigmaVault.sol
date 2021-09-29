@@ -80,8 +80,6 @@ contract SigmaVault is
     IUniswapV3Pool public immutable pool;
     IERC20 public immutable token0;
     IERC20 public immutable token1;
-    uint8 public immutable token0Decimals;
-    uint8 public immutable token1Decimals;
     int24 public immutable tickSpacing;
 
     struct lv{
@@ -128,8 +126,6 @@ contract SigmaVault is
 
         token0 = IERC20(token0Address);
         token1 = IERC20(token1Address);
-        token0Decimals = _getDecimals(token0Address);
-        token1Decimals = _getDecimals(token1Address);
 
         tickSpacing = IUniswapV3Pool(_pool).tickSpacing();
 
@@ -504,8 +500,6 @@ contract SigmaVault is
         );
         uint256 priceX96 = FullMath.mulDiv(sqrtPriceX96, sqrtPriceX96, FixedPoint96.Q96);
         return priceX96 ;
-        
-        //FullMath.mulDiv(priceX96, 10 ** token0Decimals, FixedPoint96.Q96);
     }
 
     function _checkRange(int24 tickLower, int24 tickUpper) internal view {
