@@ -2580,13 +2580,6 @@ cbor@^5.0.2:
     bignumber.js "^9.0.1"
     nofilter "^1.0.4"
 
-chai-ethers@^0.0.1:
-  version "0.0.1"
-  resolved "https://registry.yarnpkg.com/chai-ethers/-/chai-ethers-0.0.1.tgz#2dcc2d3251a07ea42ac37923b976198cccad3f1c"
-  integrity sha512-yajwk1BSf+lO2LzV+vra/iKukiUJcfD2aEVBZRWmaIJr0kI0eI1s6VF47qoXNolYxg0bf/SAlHSfwaPZWKBVyQ==
-  dependencies:
-    ethers "^5.0.0"
-
 chai@^4.3.4:
   version "4.3.4"
   resolved "https://registry.yarnpkg.com/chai/-/chai-4.3.4.tgz#b55e655b31e1eac7099be4c08c21964fce2e6c49"

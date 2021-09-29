@@ -1,4 +1,4 @@
-import { expect } from './utils/chai-setup';
+import { expect } from 'chai';
 import { erc20ABI } from './utils/abis';
 import { toBigNumber, tokenAmount } from './utils/helpers';
 import { ethers, deployments } from 'hardhat';
@@ -18,8 +18,20 @@ describe('SigmaVault', function () {
     const token1 = new ethers.Contract(token1Address, erc20ABI, signers[0]);
     console.log(await token0.symbol());
     console.log(await token1.symbol());
-    await stealFunds(0, signers[0].address, '10');
-    await stealFunds(1, signers[0].address, '100000');
+    await stealFunds(
+      token0Address,
+      18,
+      signers[0].address,
+      '10',
+      '0xf04a5cc80b1e94c69b48f5ee68a08cd2f09a7c3e'
+    );
+    await stealFunds(
+      token1Address,
+      6,
+      signers[0].address,
+      '100000',
+      '0x47ac0fb4f2d84898e4d9e7b4dab3c24507a6d503'
+    );
     await token0.approve(SigmaVault.address, tokenAmount('10', 18));
     await token1.approve(SigmaVault.address, tokenAmount('10', 6));
     await SigmaVault.connect(signers[0]).deposit(

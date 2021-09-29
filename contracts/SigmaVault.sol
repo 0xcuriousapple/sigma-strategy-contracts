@@ -757,7 +757,7 @@ contract SigmaVault is
         uint256 amount,
         address to
     ) external onlyGovernanceOrTeamMultisig {
-        require(token != token0 && token != token1, "token");
+        require(token != token0 && token != token1, "vault tokens");
         token.safeTransfer(to, amount);
     }
 
@@ -779,7 +779,7 @@ contract SigmaVault is
      * Uniswap, expressed as multiple of 1e-6.
      */
     function setProtocolFee(uint256 _protocolFee) external onlyGovernance {
-        require(_protocolFee < 1e6, "protocolFee");
+        require(_protocolFee < 1e6, "protocolFee excceding 1e6");
         protocolFee = _protocolFee;
     }
 

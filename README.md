@@ -28,10 +28,13 @@ npx solhint 'contracts/**/*.sol' --fix
 - Strategy
   - rebalance
   - collectFees
+- onlyGovernance
+  - setProtocolFee
+  - transferGovernance
 - onlyGovernanceOrTeamMultisig
+  - transferTeamMultisig
   - sweep
   - setStrategy
-  - setProtocolFee
   - setMaxTotalSupply
   - emergencyBurn
   - emergencyWithdrawL0

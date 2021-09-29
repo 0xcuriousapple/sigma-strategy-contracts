@@ -152,7 +152,7 @@ contract SigmaStrategy {
 
     /// @dev Uses same governance as underlying vault.
     modifier onlyGovernance() {
-        require(msg.sender == vault.governance(), "governance");
+        require(msg.sender == vault.governance(), "caller is not the gov");
         _;
     }
 

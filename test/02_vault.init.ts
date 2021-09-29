@@ -1,4 +1,4 @@
-import { expect } from './utils/chai-setup';
+import { expect } from 'chai';
 import { erc20ABI } from './utils/abis';
 import { toBigNumber } from './utils/helpers';
 import { ethers, deployments } from 'hardhat';

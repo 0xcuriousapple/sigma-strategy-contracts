@@ -1,4 +1,4 @@
-import { expect } from './utils/chai-setup';
+import { expect } from 'chai';
 import { toBigNumber } from './utils/helpers';
 import { ethers, deployments } from 'hardhat';
 import { SigmaStrategyDetails } from '../constants.json';
