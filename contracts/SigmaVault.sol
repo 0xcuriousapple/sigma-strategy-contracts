@@ -136,12 +136,6 @@ contract SigmaVault is
         maxTotalSupply = _maxTotalSupply;
     }
 
-    function _getDecimals(address _tokenAddress) internal view returns(uint8)
-    {
-        (bool success, bytes memory data)  = address(_tokenAddress).staticcall(abi.encode(bytes4(keccak256("decimals()"))));
-        require(success && data.length >= 1);
-        return abi.decode(data, (uint8));
-    }
     /**
      * @notice Deposits tokens in proportion to the vault's current holdings.
      * @dev These tokens sit in the vault and are not used for liquidity on
@@ -273,59 +267,6 @@ contract SigmaVault is
     }
 
     /**
-     * @notice Withdraws tokens in proportion to the vault's holdings.
-     * @param shares Shares burned by sender
-     * @param amount0Min Revert if resulting `amount0` is smaller than this
-     * @param amount1Min Revert if resulting `amount1` is smaller than this
-     * @param to Recipient of tokens
-     * @return amount0 Amount of token0 sent to recipient
-     * @return amount1 Amount of token1 sent to recipient
-     */
-    function withdraw(
-        uint256 shares,
-        uint256 amount0Min,
-        uint256 amount1Min,
-        address to
-    ) external nonReentrant returns (uint256 amount0, uint256 amount1) {
-        require(shares > 0, "shares");
-        require(to != address(0) && to != address(this), "to");
-        uint256 totalSupply = totalSupply();
-
-        // Burn shares
-        _burn(msg.sender, shares);
-
-        // Withdraw proportion of liquidity from Uniswap pool and from yearn
-
-        (uint128 totalLiquidity, , , , ) = _position(tick_lower, tick_upper);
-        uint256 liquidity = (
-            (uint256(totalLiquidity).mul(shares)).div(totalSupply)
-        );
-
-        uint256 yTotalShares0 = lendVault0.balanceOf(address(this));
-        uint256 yTotalShares1 = lendVault1.balanceOf(address(this));
-
-        console.log('yTotalShares', yTotalShares0, yTotalShares1);
-         lv memory _lv;
-        _lv.yShares0 =  (yTotalShares0.mul(shares)).div(totalSupply);
-        _lv.yShares1 =     (yTotalShares1.mul(shares)).div(totalSupply);
-        _lv.deposited0 =  (lvTotalDeposited0.mul(shares)).div(totalSupply);
-        _lv.deposited1 =     (lvTotalDeposited1.mul(shares)).div(totalSupply);
-
-        (amount0, amount1) = 
-        _withdraw(_toUint128(liquidity), _lv);
-
-        require(amount0 >= amount0Min, "amount0Min");
-        require(amount1 >= amount1Min, "amount1Min");
-        
-        
-        // Push tokens to recipient
-        if (amount0 > 0) token0.safeTransfer(to, amount0);
-        if (amount1 > 0) token1.safeTransfer(to, amount1);
-
-        emit Withdraw(msg.sender, to, shares, amount0, amount1);
-    }
-
-    /**
      * @notice Updates vault's positions. Can only be called by the strategy.
      */
     function rebalance(uint8 uniswapShare) external whenNotPaused nonReentrant onlyStrategy {
@@ -343,7 +284,7 @@ contract SigmaVault is
             _lv.yShares1 = yTotalShares1;
             _lv.deposited0 = lvTotalDeposited0;
             _lv.deposited1 = lvTotalDeposited1;
-            _withdraw(totalLiquidity, _lv);
+            _executeWithdraw(totalLiquidity, _lv);
         }
 
         // Step 2 : Swap Excess
@@ -414,22 +355,6 @@ contract SigmaVault is
         lendVault0.deposit(totalAssets0);
         lendVault1.deposit(totalAssets1);
     }   
-
-    function _adjustTick(int24 actualTick) internal view returns(int24 adjusedTick)
-    {
-        int24 floorDown = (actualTick/tickSpacing) * tickSpacing; // TODO : Safemath not enabled for int24, can this under,overflow
-        int24 floorUp = floorDown + tickSpacing;
-        
-        //floorDown ---- actual ---- floorUp
-        if(actualTick - floorDown > floorUp - actualTick )
-        {
-            adjusedTick = floorUp;
-        }
-        else
-        {
-            adjusedTick = floorDown;
-        }
-    }
 
     function _swapExcess(uint256 totalAssets0, uint256 totalAssets1) internal {
         // // Swap Excess
@@ -502,6 +427,22 @@ contract SigmaVault is
         return priceX96 ;
     }
 
+    function _adjustTick(int24 actualTick) internal view returns(int24 adjusedTick)
+    {
+        int24 floorDown = (actualTick/tickSpacing) * tickSpacing; // TODO : Safemath not enabled for int24, can this under,overflow
+        int24 floorUp = floorDown + tickSpacing;
+        
+        //floorDown ---- actual ---- floorUp
+        if(actualTick - floorDown > floorUp - actualTick )
+        {
+            adjusedTick = floorUp;
+        }
+        else
+        {
+            adjusedTick = floorDown;
+        }
+    }
+
     function _checkRange(int24 tickLower, int24 tickUpper) internal view {
         int24 _tickSpacing = tickSpacing;
         require(tickLower < tickUpper, "tickLower < tickUpper");
@@ -511,7 +452,60 @@ contract SigmaVault is
         require(tickUpper % _tickSpacing == 0, "tickUpper % tickSpacing");
     }
 
-    function _withdraw(
+    /**
+     * @notice Withdraws tokens in proportion to the vault's holdings.
+     * @param shares Shares burned by sender
+     * @param amount0Min Revert if resulting `amount0` is smaller than this
+     * @param amount1Min Revert if resulting `amount1` is smaller than this
+     * @param to Recipient of tokens
+     * @return amount0 Amount of token0 sent to recipient
+     * @return amount1 Amount of token1 sent to recipient
+     */
+    function withdraw(
+        uint256 shares,
+        uint256 amount0Min,
+        uint256 amount1Min,
+        address to
+    ) external nonReentrant returns (uint256 amount0, uint256 amount1) {
+        require(shares > 0, "shares");
+        require(to != address(0) && to != address(this), "to");
+        uint256 totalSupply = totalSupply();
+
+        // Burn shares
+        _burn(msg.sender, shares);
+
+        // Withdraw proportion of liquidity from Uniswap pool and from yearn
+
+        (uint128 totalLiquidity, , , , ) = _position(tick_lower, tick_upper);
+        uint256 liquidity = (
+            (uint256(totalLiquidity).mul(shares)).div(totalSupply)
+        );
+
+        uint256 yTotalShares0 = lendVault0.balanceOf(address(this));
+        uint256 yTotalShares1 = lendVault1.balanceOf(address(this));
+
+        console.log("yTotalShares", yTotalShares0, yTotalShares1);
+         lv memory _lv;
+        _lv.yShares0 =  (yTotalShares0.mul(shares)).div(totalSupply);
+        _lv.yShares1 =     (yTotalShares1.mul(shares)).div(totalSupply);
+        _lv.deposited0 =  (lvTotalDeposited0.mul(shares)).div(totalSupply);
+        _lv.deposited1 =     (lvTotalDeposited1.mul(shares)).div(totalSupply);
+
+        (amount0, amount1) = 
+        _executeWithdraw(_toUint128(liquidity), _lv);
+
+        require(amount0 >= amount0Min, "amount0Min");
+        require(amount1 >= amount1Min, "amount1Min");
+        
+        
+        // Push tokens to recipient
+        if (amount0 > 0) token0.safeTransfer(to, amount0);
+        if (amount1 > 0) token1.safeTransfer(to, amount1);
+
+        emit Withdraw(msg.sender, to, shares, amount0, amount1);
+    }
+
+    function _executeWithdraw(
         uint128 liquidity,
         lv memory _lv
     )
@@ -521,7 +515,7 @@ contract SigmaVault is
             uint256 amount1
         )
     {   
-        
+        //Step 1
         (uint256 uni0Withdrawn, uint256 uni1Withdrawn, uint256 uniGain0, uint256 uniGain1) = _uniBurnAndCollect(
             tick_lower,
             tick_upper,
@@ -536,11 +530,13 @@ contract SigmaVault is
         // console.log("yShares1: ",_lv.yShares1);
         // console.log("lvDeposited0: ",_lv.deposited0);
         // console.log("lvDeposited1: ",_lv.deposited1);
-
+        
+        //Step 2
         (uint256 lvWithdraw0, uint256 lvWithdraw1, uint256 lvGain0, uint256 lvGain1) = _lvWithdraw(
           _lv
         );
-       
+
+        // Step 3
         (uint256 gain0, uint256 gain1) = _accureFees(
             uniGain0.add(lvGain0),
             uniGain1.add(lvGain1)
@@ -573,7 +569,7 @@ contract SigmaVault is
         uniGain1 = collect1.sub(uni1Withdrwn);
     }
 
-     function _lvWithdraw(
+    function _lvWithdraw(
        lv memory _lv
     ) internal returns (uint256 lvWithdraw0, uint256 lvWithdraw1, uint256 lvGain0, uint256 lvGain1) {
         console.log(_lv.yShares0, _lv.yShares1);
@@ -582,6 +578,7 @@ contract SigmaVault is
         lvGain0 = lvWithdraw0 > _lv.deposited0 ? lvWithdraw0 -  _lv.deposited0 : 0;
         lvGain1 = lvWithdraw1 > _lv.deposited1 ? lvWithdraw1 - _lv.deposited1 : 0;
     }
+
     function _accureFees(uint256 totalGain0, uint256 totalGain1)
         internal
         returns (uint256 gain0, uint256 gain1)
@@ -599,6 +596,8 @@ contract SigmaVault is
         }
     }
 
+    /// Helpers 
+    
     /// @dev Deposits liquidity in a range on the Uniswap pool.
     function _mintLiquidity(
         int24 tickLower,
