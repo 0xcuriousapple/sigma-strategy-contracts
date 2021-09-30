@@ -93,7 +93,8 @@ contract SigmaVault is
     uint256 public lvTotalDeposited0;
     uint256 public lvTotalDeposited1;
 
-    uint256 public protocolFee;
+    uint256 public protocolFee;  
+    uint256 public swapExcessIgnore;
     uint256 public maxTotalSupply;
     address public strategy;
 
@@ -115,6 +116,7 @@ contract SigmaVault is
         address _lendVault0,
         address _lendVault1,
         uint256 _protocolFee,
+        uint256 _swapExcessIgnore,
         uint256 _maxTotalSupply
     ) ERC20("Sigma Vault", "SV") {
         require(_protocolFee < 1e6, "protocolFee");
@@ -128,6 +130,7 @@ contract SigmaVault is
         lendVault1 = VaultAPI(_lendVault1);
 
         protocolFee = _protocolFee;
+        swapExcessIgnore = _swapExcessIgnore;
         maxTotalSupply = _maxTotalSupply;
     }
 
@@ -355,47 +358,59 @@ contract SigmaVault is
         if (total0ValueIn1 > totalAssets1) {
             //token0 is in excess
             //Swap excess token0 into token1
-            _swap0to1(total0ValueIn1, totalAssets1,priceX96);
+            _swap0to1(total0ValueIn1, totalAssets0, totalAssets1, priceX96);
             
         } else if (total1ValueIn0 > totalAssets0) {
             //token1 is in excess
             //Swap excess token1 into token0
-            _swap1to0(total1ValueIn0, totalAssets0,priceX96);
+            _swap1to0(total1ValueIn0, totalAssets1, totalAssets0, priceX96);
         }
     }
     
-    function _swap0to1(uint256 total0ValueIn1, uint256 totalAssets1, uint256 priceX96) internal 
+    function _swap0to1(uint256 total0ValueIn1, uint256 totalAssets0, uint256 totalAssets1, uint256 priceX96) internal 
     {       
         (uint160 sqrtPriceCurrent, , , , , , ) = pool.slot0();
         uint24 fee = pool.fee();
             
         uint256 totalExcess0InTermsOf1 = total0ValueIn1.sub(totalAssets1);  
         uint256 totalExcess0 = FullMath.mulDiv(totalExcess0InTermsOf1, FixedPoint96.Q96, priceX96);
-        uint256 swapAmount = FullMath.mulDiv(totalExcess0, 1e6, 2*(1e6-fee));
-        pool.swap(
-            address(this),
-            true,
-            int256(swapAmount),
-            uint160(((uint256(sqrtPriceCurrent)).mul(90)).div(100)), // TODO : default, 0, sqrtPriceLimit => do we want to set so ?
-            ""
-        );
+    
+        uint256 excess0Ignore = FullMath.mulDiv(totalAssets0, swapExcessIgnore, 1e6);
+
+        //console.log('swapExcessIgnore', excess0Ignore, totalAssets0, totalExcess0);
+        if(totalExcess0>excess0Ignore)
+        {
+            uint256 swapAmount = FullMath.mulDiv(totalExcess0, 1e6, 2*(1e6-fee));
+            pool.swap(
+                address(this),
+                true,
+                int256(swapAmount),
+                uint160(((uint256(sqrtPriceCurrent)).mul(90)).div(100)), // TODO : default, 0, sqrtPriceLimit => do we want to set so ?
+                ""
+            );
+        }
     }
 
-    function _swap1to0(uint256 total1ValueIn0, uint256 totalAssets0, uint256 priceX96) internal 
+    function _swap1to0(uint256 total1ValueIn0, uint256 totalAssets1, uint256 totalAssets0, uint256 priceX96) internal 
     {   
         (uint160 sqrtPriceCurrent, , , , , , ) = pool.slot0();
         uint24 fee = pool.fee();
 
         uint256 totalExcess1InTermsOf0 = total1ValueIn0.sub(totalAssets0);
         uint256 totalExcess1 = FullMath.mulDiv(totalExcess1InTermsOf0,priceX96,FixedPoint96.Q96);
-        uint256 swapAmount = totalExcess1.div(FullMath.mulDiv(2, 1e6 - fee, 1e6));
-        pool.swap(
-            address(this),
-            false,
-            int256(swapAmount),
-            uint160(((uint256(sqrtPriceCurrent)).mul(110)).div(100)), // TODO : default, 0, sqrtPriceLimit => do we want to set so ?
-            ""
-        );
+
+        uint256 excess1Ignore = FullMath.mulDiv(totalAssets1, swapExcessIgnore, 1e6);
+        
+        if(totalExcess1> excess1Ignore){
+            uint256 swapAmount = totalExcess1.div(FullMath.mulDiv(2, 1e6 - fee, 1e6));
+            pool.swap(
+                address(this),
+                false,
+                int256(swapAmount),
+                uint160(((uint256(sqrtPriceCurrent)).mul(110)).div(100)), // TODO : default, 0, sqrtPriceLimit => do we want to set so ?
+                ""
+            );
+        }
     }
     /// @dev Fetches time-weighted average price 
     // TODO : Make internal, have kept public for testing
@@ -735,7 +750,7 @@ contract SigmaVault is
         bytes calldata data
     ) external override {
         require(msg.sender == address(pool));
-        // console.log("Swap callback", uint256(amount0Delta), uint256(amount1Delta));
+        //console.log("Swap callback", uint256(amount0Delta), uint256(amount1Delta));
         if (amount0Delta > 0)
             token0.safeTransfer(msg.sender, uint256(amount0Delta));
         if (amount1Delta > 0)
@@ -776,7 +791,20 @@ contract SigmaVault is
         strategy = _strategy;
     }
 
-
+    
+    /**
+     * @notice Used to change deposit cap for a guarded launch or to ensure
+     * vault doesn't grow too large relative to the pool. Cap is on total
+     * supply rather than amounts of token0 and token1 as those amounts
+     * fluctuate naturally over time.
+     */
+    function setSwapExcessIgnore(uint256 _swapExcessIgnore)
+        external
+        onlyGovernanceOrTeamMultisig
+    {
+        swapExcessIgnore = _swapExcessIgnore;
+    }
+    
     /**
      * @notice Used to change the protocol fee charged on pool fees earned from
      * Uniswap, expressed as multiple of 1e-6.

@@ -6,11 +6,12 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const { deploy } = deployments;
 
   const { deployer } = await getNamedAccounts();
-  const { POOL, LEND_VAULT0, LEND_VAULT1, PROTOCOL_FEE, MAX_TOTAL_SUPPLY } = SigmaVaultDetails;
+  const { POOL, LEND_VAULT0, LEND_VAULT1, PROTOCOL_FEE, SWAP_EXCESS_IGNORE, MAX_TOTAL_SUPPLY } =
+    SigmaVaultDetails;
 
   await deploy('SigmaVault', {
     from: deployer,
-    args: [POOL, LEND_VAULT0, LEND_VAULT1, PROTOCOL_FEE, MAX_TOTAL_SUPPLY],
+    args: [POOL, LEND_VAULT0, LEND_VAULT1, PROTOCOL_FEE, SWAP_EXCESS_IGNORE, MAX_TOTAL_SUPPLY],
     log: true,
   });
 };
