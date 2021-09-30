@@ -32,9 +32,7 @@ import "hardhat/console.sol";
 
 /**
  * @title   Sigma Vault
- * @notice  TBA
- * TBA
- * TBA
+ * @notice  A vault which provides liquidity on Uniswap V3 and Yearn
  */
 
 contract SigmaVault is
@@ -47,6 +45,7 @@ contract SigmaVault is
 {
     using SafeERC20 for IERC20;
     using SafeMath for uint256;
+
     event Deposit(
         address indexed sender,
         address indexed to,
@@ -91,6 +90,8 @@ contract SigmaVault is
 
     VaultAPI public lendVault0;
     VaultAPI public lendVault1;
+    uint256 public lvTotalDeposited0;
+    uint256 public lvTotalDeposited1;
 
     uint256 public protocolFee;
     uint256 public maxTotalSupply;
@@ -100,8 +101,6 @@ contract SigmaVault is
     int24 public tick_upper;
     uint256 public accruedProtocolFees0;
     uint256 public accruedProtocolFees1;
-    uint256 public lvTotalDeposited0;
-    uint256 public lvTotalDeposited1;
 
     /**
      * @dev After deploying, strategy needs to be set via `setStrategy()`
@@ -121,12 +120,8 @@ contract SigmaVault is
         require(_protocolFee < 1e6, "protocolFee");
 
         pool = IUniswapV3Pool(_pool);
-        address token0Address = IUniswapV3Pool(_pool).token0();
-        address token1Address = IUniswapV3Pool(_pool).token1();
-
-        token0 = IERC20(token0Address);
-        token1 = IERC20(token1Address);
-
+        token0 = IERC20(IUniswapV3Pool(_pool).token0());
+        token1 = IERC20(IUniswapV3Pool(_pool).token1());
         tickSpacing = IUniswapV3Pool(_pool).tickSpacing();
 
         lendVault0 = VaultAPI(_lendVault0);
@@ -139,7 +134,8 @@ contract SigmaVault is
     /**
      * @notice Deposits tokens in proportion to the vault's current holdings.
      * @dev These tokens sit in the vault and are not used for liquidity on
-     * Uniswap until the next rebalance. Also note it's not necessary to check
+     * Uniswap or deposited in yearn until the next rebalance. 
+     * Also note it's not necessary to check
      * if user manipulated price to deposit cheaper, as the value of range
      * orders can only by manipulated higher.
      * @param amount0Desired Max amount of token0 to deposit
@@ -196,15 +192,6 @@ contract SigmaVault is
         if (amount1 > 0)
             token1.safeTransferFrom(msg.sender, address(this), amount1);
      
-        // Yearn Deposit
-        // In our case there is no unused amount
-        lvTotalDeposited0 = lvTotalDeposited0.add(amount0);
-        lvTotalDeposited1 = lvTotalDeposited1.add(amount1);
-        token0.safeApprove(address(lendVault0), amount0);
-        token1.safeApprove(address(lendVault1), amount1);
-        lendVault0.deposit(amount0);
-        lendVault1.deposit(amount1);
-
         // Mint shares to recipient
         _mint(to, shares);
         emit Deposit(msg.sender, to, shares, amount0, amount1);
@@ -467,15 +454,24 @@ contract SigmaVault is
         uint256 amount1Min,
         address to
     ) external nonReentrant returns (uint256 amount0, uint256 amount1) {
-        require(shares > 0, "shares");
-        require(to != address(0) && to != address(this), "to");
+        require(shares > 0, "shares == 0");
+        require(to != address(0) && to != address(this), "invalid recepient");
         uint256 totalSupply = totalSupply();
 
         // Burn shares
         _burn(msg.sender, shares);
 
-        // Withdraw proportion of liquidity from Uniswap pool and from yearn
+        // Calculate token amounts proportional to unused balances
+        {
+        uint256 unusedAmount0 = getBalance0().mul(shares).div(totalSupply);
+        uint256 unusedAmount1 = getBalance1().mul(shares).div(totalSupply);
 
+        amount0 = amount0.add(unusedAmount0);
+        amount1 = amount1.add(unusedAmount1);
+        }
+
+        // Withdraw proportion of liquidity from Uniswap pool and from yearn
+        {
         (uint128 totalLiquidity, , , , ) = _position(tick_lower, tick_upper);
         uint256 liquidity = (
             (uint256(totalLiquidity).mul(shares)).div(totalSupply)
@@ -484,15 +480,18 @@ contract SigmaVault is
         uint256 yTotalShares0 = lendVault0.balanceOf(address(this));
         uint256 yTotalShares1 = lendVault1.balanceOf(address(this));
 
-        console.log("yTotalShares", yTotalShares0, yTotalShares1);
          lv memory _lv;
         _lv.yShares0 =  (yTotalShares0.mul(shares)).div(totalSupply);
         _lv.yShares1 =     (yTotalShares1.mul(shares)).div(totalSupply);
         _lv.deposited0 =  (lvTotalDeposited0.mul(shares)).div(totalSupply);
         _lv.deposited1 =     (lvTotalDeposited1.mul(shares)).div(totalSupply);
 
-        (amount0, amount1) = 
+        (uint256 _amountWithdrawn0, uint256 _amountWithdrawn1) = 
         _executeWithdraw(_toUint128(liquidity), _lv);
+
+        amount0 = amount0.add(_amountWithdrawn0);
+        amount1 = amount1.add(_amountWithdrawn1);
+        }
 
         require(amount0 >= amount0Min, "amount0Min");
         require(amount1 >= amount1Min, "amount1Min");
@@ -555,7 +554,8 @@ contract SigmaVault is
         // Uniswap Withdraw
         if (liquidity > 0) {
             (uni0Withdrwn, uni1Withdrwn) = pool.burn(tickLower, tickUpper, liquidity);
-        }
+        }  
+        console.log('UniWithdrawm',uni0Withdrwn, uni1Withdrwn);
 
         (uint256 collect0, uint256 collect1) = pool.collect(
             address(this),
@@ -564,7 +564,7 @@ contract SigmaVault is
             type(uint128).max,
             type(uint128).max
         );
-
+        console.log('UniCollect',collect0, collect1);
         uniGain0 = collect0.sub(uni0Withdrwn);
         uniGain1 = collect1.sub(uni1Withdrwn);
     }
@@ -572,9 +572,10 @@ contract SigmaVault is
     function _lvWithdraw(
        lv memory _lv
     ) internal returns (uint256 lvWithdraw0, uint256 lvWithdraw1, uint256 lvGain0, uint256 lvGain1) {
-        console.log(_lv.yShares0, _lv.yShares1);
-        lvWithdraw0 = lendVault0.withdraw(_lv.yShares0); // max loss  # 0.01% 
-        lvWithdraw1 = lendVault1.withdraw(_lv.yShares1);
+        console.log('Shares', _lv.yShares0, _lv.yShares1);
+
+        if(_lv.yShares0 > 0) lvWithdraw0 = lendVault0.withdraw(_lv.yShares0); // max loss  # 0.01% 
+        if(_lv.yShares1 > 0) lvWithdraw1 = lendVault1.withdraw(_lv.yShares1);
         lvGain0 = lvWithdraw0 > _lv.deposited0 ? lvWithdraw0 -  _lv.deposited0 : 0;
         lvGain1 = lvWithdraw1 > _lv.deposited1 ? lvWithdraw1 - _lv.deposited1 : 0;
     }
@@ -638,8 +639,8 @@ contract SigmaVault is
             lendVault1.pricePerShare()
         );
 
-        total0 = uniAmount0.add(lvAmount0);
-        total1 = uniAmount1.add(lvAmount1);
+        total0 = getBalance0().add(uniAmount0).add(lvAmount0);
+        total1 = getBalance1().add(uniAmount1).add(lvAmount1);
     }
 
     /**
@@ -744,9 +745,11 @@ contract SigmaVault is
     /**
      * @notice Used to collect accumulated protocol fees.
      */
-    function collectFees(address _feeCollector) external onlyStrategy {
-        token0.safeTransfer(_feeCollector, accruedProtocolFees0);
-        token1.safeTransfer(_feeCollector, accruedProtocolFees1);
+    function collectFees(uint256 amount0, uint256 amount1, address _feeCollector) external onlyStrategy {
+        accruedProtocolFees0 = accruedProtocolFees0.sub(amount0);
+        accruedProtocolFees1 = accruedProtocolFees1.sub(amount1);
+        if (amount0 > 0) token0.safeTransfer(_feeCollector, accruedProtocolFees0);
+        if (amount1 > 0) token1.safeTransfer(_feeCollector, accruedProtocolFees1);
     }
 
     /**
@@ -799,7 +802,7 @@ contract SigmaVault is
     /**
      * @notice Removes liquidity in case of emergency.
      */
-    function emergencyBurn() external onlyGovernanceOrTeamMultisig {
+    function emergencyWithdrawUni() external onlyGovernanceOrTeamMultisig {
         (uint128 totalLiquidity, , , , ) = _position(tick_lower, tick_upper);
         pool.burn(tick_lower, tick_upper, totalLiquidity);
         pool.collect(
