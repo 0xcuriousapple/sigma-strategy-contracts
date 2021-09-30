@@ -710,8 +710,8 @@ contract SigmaVault is
 
         // Subtract protocol fees
         uint256 oneMinusFee = uint256(1e6).sub(protocolFee);
-        if(amount0>lvTotalDeposited0) amount0 = FullMath.mulDiv(amount0, oneMinusFee, 1e6);
-        if(amount1>lvTotalDeposited1) amount1 = FullMath.mulDiv(amount1, oneMinusFee, 1e6);
+        if(amount0>lvTotalDeposited0) amount0 = FullMath.mulDiv(amount0.sub(lvTotalDeposited0), oneMinusFee, 1e6);
+        if(amount1>lvTotalDeposited1) amount1 = FullMath.mulDiv(amount1.sub(lvTotalDeposited1), oneMinusFee, 1e6);
     }
 
     /// @dev Wrapper around `IUniswapV3Pool.positions()`.
