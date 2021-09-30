@@ -515,11 +515,7 @@ contract SigmaVault is
         )
     {   
         //Step 1
-        (uint256 uni0Withdrawn, uint256 uni1Withdrawn, uint256 uniGain0, uint256 uniGain1) = _uniBurnAndCollect(
-            tick_lower,
-            tick_upper,
-            _toUint128(liquidity)
-        );
+        (uint256 uni0Withdrawn, uint256 uni1Withdrawn, uint256 uniGain0, uint256 uniGain1) = _uniBurnAndCollect(_toUint128(liquidity));
 
         // console.log("Withdraw");
         // console.log("Liq:",  liquidity);
@@ -547,24 +543,22 @@ contract SigmaVault is
 
     /// @dev Withdraws liquidity from uniswap with fees
     function _uniBurnAndCollect(
-        int24 tickLower,
-        int24 tickUpper,
         uint128 liquidity
     ) internal returns (uint256 uni0Withdrwn, uint256 uni1Withdrwn, uint256 uniGain0, uint256 uniGain1) {
         // Uniswap Withdraw
         if (liquidity > 0) {
-            (uni0Withdrwn, uni1Withdrwn) = pool.burn(tickLower, tickUpper, liquidity);
+            (uni0Withdrwn, uni1Withdrwn) = pool.burn(tick_lower, tick_upper, liquidity);
         }  
-        console.log('UniWithdrawm',uni0Withdrwn, uni1Withdrwn);
+        console.log("UniWithdrawm",uni0Withdrwn, uni1Withdrwn);
 
         (uint256 collect0, uint256 collect1) = pool.collect(
             address(this),
-            tickLower,
-            tickUpper,
+            tick_lower,
+            tick_upper,
             type(uint128).max,
             type(uint128).max
         );
-        console.log('UniCollect',collect0, collect1);
+        console.log("UniCollect",collect0, collect1);
         uniGain0 = collect0.sub(uni0Withdrwn);
         uniGain1 = collect1.sub(uni1Withdrwn);
     }
@@ -572,7 +566,7 @@ contract SigmaVault is
     function _lvWithdraw(
        lv memory _lv
     ) internal returns (uint256 lvWithdraw0, uint256 lvWithdraw1, uint256 lvGain0, uint256 lvGain1) {
-        console.log('Shares', _lv.yShares0, _lv.yShares1);
+        console.log("Shares", _lv.yShares0, _lv.yShares1);
 
         if(_lv.yShares0 > 0) lvWithdraw0 = lendVault0.withdraw(_lv.yShares0); // max loss  # 0.01% 
         if(_lv.yShares1 > 0) lvWithdraw1 = lendVault1.withdraw(_lv.yShares1);
@@ -628,16 +622,8 @@ contract SigmaVault is
         view
         returns (uint256 total0, uint256 total1)
     {
-        (uint256 uniAmount0, uint256 uniAmount1) = getPositionAmounts(
-            tick_lower,
-            tick_upper
-        );
-        uint256 lvAmount0 = lendVault0.balanceOf(address(this)).mul(
-            lendVault0.pricePerShare()
-        );
-        uint256 lvAmount1 = lendVault1.balanceOf(address(this)).mul(
-            lendVault1.pricePerShare()
-        );
+        (uint256 uniAmount0, uint256 uniAmount1) = getPositionAmounts();
+        (uint256 lvAmount0, uint256 lvAmount1) = getLvAmounts();
 
         total0 = getBalance0().add(uniAmount0).add(lvAmount0);
         total1 = getBalance1().add(uniAmount1).add(lvAmount1);
@@ -648,7 +634,7 @@ contract SigmaVault is
      * owed fees but excludes the proportion of fees that will be paid to the
      * protocol. Doesn't include fees accrued since last poke.
      */
-    function getPositionAmounts(int24 tickLower, int24 tickUpper)
+    function getPositionAmounts()
         public
         view
         returns (uint256 amount0, uint256 amount1)
@@ -659,10 +645,10 @@ contract SigmaVault is
             ,
             uint128 tokensOwed0,
             uint128 tokensOwed1
-        ) = _position(tickLower, tickUpper);
+        ) = _position(tick_lower, tick_upper);
         (amount0, amount1) = _amountsForLiquidity(
-            tickLower,
-            tickUpper,
+            tick_lower,
+            tick_upper,
             liquidity
         );
 
@@ -671,7 +657,21 @@ contract SigmaVault is
         amount0 = amount0.add((uint256(tokensOwed0).mul(oneMinusFee)).div(1e6));
         amount1 = amount1.add((uint256(tokensOwed1).mul(oneMinusFee)).div(1e6));
 
-        // TODO : Do same for yearn
+    }
+
+    function getLvAmounts() public view returns(uint256 amount0, uint256 amount1)
+    {
+        amount0 = lendVault0.balanceOf(address(this)).mul(
+            lendVault0.pricePerShare()
+        );
+        amount1 = lendVault1.balanceOf(address(this)).mul(
+            lendVault1.pricePerShare()
+        );
+
+        // Subtract protocol fees
+        uint256 oneMinusFee = uint256(1e6).sub(protocolFee);
+        if(amount0>lvTotalDeposited0) amount0 = FullMath.mulDiv(amount0, oneMinusFee, 1e6);
+        if(amount1>lvTotalDeposited1) amount1 = FullMath.mulDiv(amount1, oneMinusFee, 1e6);
     }
 
     /// @dev Wrapper around `IUniswapV3Pool.positions()`.
