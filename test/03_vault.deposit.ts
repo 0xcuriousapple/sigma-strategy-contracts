@@ -18,6 +18,7 @@ describe('SigmaVault', function () {
     const token1 = new ethers.Contract(token1Address, erc20ABI, signers[0]);
     console.log(await token0.symbol());
     console.log(await token1.symbol());
+
     await stealFunds(
       token0Address,
       18,
@@ -29,23 +30,41 @@ describe('SigmaVault', function () {
       token1Address,
       6,
       signers[0].address,
-      '100000',
+      '10000',
       '0x47ac0fb4f2d84898e4d9e7b4dab3c24507a6d503'
     );
     await token0.approve(SigmaVault.address, tokenAmount('10', 18));
-    await token1.approve(SigmaVault.address, tokenAmount('10', 6));
+    await token1.approve(SigmaVault.address, tokenAmount('10000', 6));
+
+    const token0Before = await token0.balanceOf(signers[0].address);
+    const token1Before = await token1.balanceOf(signers[1].address);
+
     await SigmaVault.connect(signers[0]).deposit(
       tokenAmount('10', 18),
+      tokenAmount('10000', 6),
+      tokenAmount('1', 18),
       tokenAmount('10', 6),
-      tokenAmount('10', 18),
-      tokenAmount('10', 6),
-      signers[0].address,
-      { gasLimit: 30000000, gasPrice: 0 }
+      signers[0].address
     );
+
+    // Current TWAP is 1ETH = 3060.095307 USDT
+    // Hence token 0 is in excess
+    // So, only some of 10 eth should be consumed
+    // Where as total 10000 should be consumed
+
+    const priceX96 = await SigmaVault._getTwap();
+    const token0consumed = tokenAmount('10000', 6)
+      .mul(toBigNumber('0x1000000000000000000000000'))
+      .div(priceX96);
+
+    // console.log(Number(await token0.balanceOf(signers[0].address)));
+    // console.log(Number(await token1.balanceOf(signers[0].address)));
+
     const sharesMinted = await SigmaVault.balanceOf(signers[0].address);
 
-    console.log(Number(await SigmaVault._getTwap()));
-    expect(sharesMinted).to.equal(tokenAmount('10', 18));
+    expect(await token0.balanceOf(signers[0].address)).to.equal(token0Before.sub(token0consumed));
+    expect(await token1.balanceOf(signers[0].address)).to.equal(tokenAmount('0', 6));
+    expect(sharesMinted).to.equal(token0consumed);
   });
 
   // Second Deposit

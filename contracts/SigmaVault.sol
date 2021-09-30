@@ -232,16 +232,41 @@ contract SigmaVault is
         assert(totalSupply == 0 || total0 > 0 || total1 > 0);
 
         if (totalSupply == 0) {
-            // For first deposit, just use the amounts desired
-            amount0 = amount0Desired;
-            amount1 = amount1Desired;
+            // For first deposit, restrict to 50-50
+            uint256 priceX96 = _getTwap();
+            console.log("twap price", priceX96.mul(1e18).div(FixedPoint96.Q96));
+            uint256 amount0DesiredValueIn1 = FullMath.mulDiv(amount0Desired, priceX96, FixedPoint96.Q96);
+
+            if(amount0DesiredValueIn1 > amount1Desired)
+            { 
+                // token0 is in excess
+                amount0 = FullMath.mulDiv(amount1Desired, FixedPoint96.Q96, priceX96);
+                amount1 = amount1Desired;
+
+                console.log(amount0);
+                console.log(amount1);
+            }
+            else if (amount0DesiredValueIn1 < amount1Desired)
+            {
+                //token1 is in excess or they are equal
+                amount0 = amount0Desired;
+                amount1 = FullMath.mulDiv(amount0Desired, priceX96, FixedPoint96.Q96);
+            }
+            else
+            {
+                amount0 = amount0Desired;
+                amount1 = amount1Desired;
+            }
             shares = Math.max(amount0, amount1);
+
         } else if (total0 == 0) {
             amount1 = amount1Desired;
             shares = (amount1.mul(totalSupply)).div(total1);
+
         } else if (total1 == 0) {
             amount0 = amount0Desired;
             shares = (amount0.mul(totalSupply)).div(total0);
+
         } else {
             uint256 cross = Math.min(
                 amount0Desired.mul(total1),
