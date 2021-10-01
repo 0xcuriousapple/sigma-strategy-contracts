@@ -336,21 +336,21 @@ contract SigmaVault is
 
         // console.log("Uniswap Share0",uniswapDeposit0);
         // console.log("Uniswap Share1",uniswapDeposit1);
-        uint160 sqrtPriceUpper = SqrtPriceMath
+        uint160 sqrtPriceLower = SqrtPriceMath
             .getNextSqrtPriceFromAmount1RoundingDown(
                 sqrtPriceCurrent,
                 liq,
                 uniswapDeposit1,
-                true
+                false
             );
            
 
-        uint160 sqrtPriceLower = SqrtPriceMath
+        uint160 sqrtPriceUpper = SqrtPriceMath
             .getNextSqrtPriceFromAmount0RoundingUp(
                 sqrtPriceCurrent,
                 liq,
                 uniswapDeposit0,
-                true
+                false
             );
 
         tick_lower = _adjustTick(TickMath.getTickAtSqrtRatio(sqrtPriceLower));
