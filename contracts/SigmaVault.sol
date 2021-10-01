@@ -311,7 +311,7 @@ contract SigmaVault is
         totalAssets0 = getBalance0();
         totalAssets1 = getBalance1();
         // console.log("Total Assets after swap", totalAssets0, totalAssets1);
-        (uint160 sqrtPriceCurrent, , , , , , ) = pool.slot0();
+        (uint160 sqrtPriceCurrent, int24 tick , , , , , ) = pool.slot0();
 
 
         // Step 3 : Mint Liq and Yearn Deposit
@@ -356,7 +356,20 @@ contract SigmaVault is
         tick_lower = _adjustTick(TickMath.getTickAtSqrtRatio(sqrtPriceLower));
         tick_upper = _adjustTick(TickMath.getTickAtSqrtRatio(sqrtPriceUpper));
 
+        console.log("sqrtPrices");
+        console.log(sqrtPriceCurrent);
+        console.log(sqrtPriceLower);
+        console.log(sqrtPriceUpper);
+
         _checkRange(tick_lower, tick_upper);
+        
+        // If +, - possible
+        // And to check price is not too close to min/max allowed by Uniswap. Price
+        // shouldn't be this extreme unless something was wrong with the pool.
+
+        require(tick > TickMath.MIN_TICK + tick_upper - tick + tickSpacing, "tick too low");
+        require(tick < TickMath.MAX_TICK - (tick_lower - tick) - tickSpacing, "tick too high");
+        
         _mintLiquidity(tick_lower, tick_upper, liq);
 
         // Yearn

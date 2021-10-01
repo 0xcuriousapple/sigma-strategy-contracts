@@ -66,20 +66,8 @@ contract SigmaStrategy {
     function rebalance() external onlyKeeper {
 
         require(block.timestamp - lastRebalance >= rebalanceGap, "Premature Rebalance");
-        // Check price is not too close to min/max allowed by Uniswap. Price
-        // shouldn't be this extreme unless something was wrong with the pool.
-
+        
         int24 tick = _getTick();
-
-        // TODO : Do we have to do follwoing ?
-        // require(
-        //     tick > TickMath.MIN_TICK + _baseThreshold + tickSpacing,
-        //     "tick too low"
-        // );
-        // require(
-        //     tick < TickMath.MAX_TICK - _baseThreshold - tickSpacing,
-        //     "tick too high"
-        // );
 
         // Check price has not moved a lot recently. This mitigates price
         // manipulation during rebalance and also prevents placing orders
