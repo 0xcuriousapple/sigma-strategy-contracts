@@ -317,8 +317,8 @@ contract SigmaVault is
         // Step 3 : Mint Liq and Yearn Deposit
         // Uniswap
         uint160 infinity = uint160(uint256(1 << 160) - 1);
-
-        
+        console.log("totalAssets", totalAssets0, totalAssets1);
+        console.log("param",infinity, sqrtPriceCurrent);
         uint128 liq0 = LiquidityAmounts.getLiquidityForAmount0(
            sqrtPriceCurrent,
             infinity,
@@ -329,6 +329,7 @@ contract SigmaVault is
             sqrtPriceCurrent,
             totalAssets1
         );
+        console.log("Liq", liq0, liq1);
         uint128 liq = liq0 > liq1 ? liq1 : liq0;
 
         uint256 uniswapDeposit0 = (totalAssets0.mul(uniswapShare)).div(100);
@@ -361,6 +362,9 @@ contract SigmaVault is
         console.log(sqrtPriceLower);
         console.log(sqrtPriceUpper);
 
+        // console.log("Calculated SqrtPrice Lower", FullMath.mulDiv(sqrtPriceCurrent, 90, 100));
+        // console.log("Calculated SqrtPrice Upper", FullMath.mulDiv(sqrtPriceCurrent, 100, 90));
+
         _checkRange(tick_lower, tick_upper);
         
         // If +, - possible
@@ -385,8 +389,9 @@ contract SigmaVault is
     }   
 
     function _swapExcess(uint256 totalAssets0, uint256 totalAssets1) internal {
-        // // Swap Excess
-        uint256 priceX96 = _getTwap();
+        // Swap Excess
+        (uint160 sqrtPriceCurrent, , , , , , ) = pool.slot0();
+        uint256 priceX96 = FullMath.mulDiv(sqrtPriceCurrent, sqrtPriceCurrent, FixedPoint96.Q96);
         // console.log("Price", FullMath.mulDiv(priceX96, 1e18, FixedPoint96.Q96));
         uint256 total0ValueIn1 = FullMath.mulDiv(totalAssets0, priceX96, FixedPoint96.Q96);
         uint256 total1ValueIn0 = FullMath.mulDiv(totalAssets1, FixedPoint96.Q96, priceX96);
@@ -396,18 +401,17 @@ contract SigmaVault is
         if (total0ValueIn1 > totalAssets1) {
             //token0 is in excess
             //Swap excess token0 into token1
-            _swap0to1(total0ValueIn1, totalAssets0, totalAssets1, priceX96);
+            _swap0to1(total0ValueIn1, totalAssets0, totalAssets1, priceX96, sqrtPriceCurrent);
             
         } else if (total1ValueIn0 > totalAssets0) {
             //token1 is in excess
             //Swap excess token1 into token0
-            _swap1to0(total1ValueIn0, totalAssets1, totalAssets0, priceX96);
+            _swap1to0(total1ValueIn0, totalAssets1, totalAssets0, priceX96, sqrtPriceCurrent);
         }
     }
     
-    function _swap0to1(uint256 total0ValueIn1, uint256 totalAssets0, uint256 totalAssets1, uint256 priceX96) internal 
+    function _swap0to1(uint256 total0ValueIn1, uint256 totalAssets0, uint256 totalAssets1, uint256 priceX96, uint256 sqrtPriceX96) internal 
     {       
-        (uint160 sqrtPriceCurrent, , , , , , ) = pool.slot0();
         uint24 fee = pool.fee();
             
         uint256 totalExcess0InTermsOf1 = total0ValueIn1.sub(totalAssets1);  
@@ -423,15 +427,14 @@ contract SigmaVault is
                 address(this),
                 true,
                 int256(swapAmount),
-                uint160(((uint256(sqrtPriceCurrent)).mul(90)).div(100)), // TODO : default, 0, sqrtPriceLimit => do we want to set so ?
+                uint160(((uint256(sqrtPriceX96)).mul(90)).div(100)), // TODO : default, 0, sqrtPriceLimit => do we want to set so ?
                 ""
             );
         }
     }
 
-    function _swap1to0(uint256 total1ValueIn0, uint256 totalAssets1, uint256 totalAssets0, uint256 priceX96) internal 
+    function _swap1to0(uint256 total1ValueIn0, uint256 totalAssets1, uint256 totalAssets0, uint256 priceX96, uint256 sqrtPriceX96) internal 
     {   
-        (uint160 sqrtPriceCurrent, , , , , , ) = pool.slot0();
         uint24 fee = pool.fee();
 
         uint256 totalExcess1InTermsOf0 = total1ValueIn0.sub(totalAssets0);
@@ -445,7 +448,7 @@ contract SigmaVault is
                 address(this),
                 false,
                 int256(swapAmount),
-                uint160(((uint256(sqrtPriceCurrent)).mul(110)).div(100)), // TODO : default, 0, sqrtPriceLimit => do we want to set so ?
+                uint160(((uint256(sqrtPriceX96)).mul(110)).div(100)), // TODO : default, 0, sqrtPriceLimit => do we want to set so ?
                 ""
             );
         }
@@ -602,7 +605,7 @@ contract SigmaVault is
         if (liquidity > 0) {
             (uni0Withdrwn, uni1Withdrwn) = pool.burn(tick_lower, tick_upper, liquidity);
         }  
-        console.log("UniWithdrawm",uni0Withdrwn, uni1Withdrwn);
+        //console.log("UniWithdrawm",uni0Withdrwn, uni1Withdrwn);
 
         (uint256 collect0, uint256 collect1) = pool.collect(
             address(this),
@@ -611,7 +614,7 @@ contract SigmaVault is
             type(uint128).max,
             type(uint128).max
         );
-        console.log("UniCollect",collect0, collect1);
+        //console.log("UniCollect",collect0, collect1);
         uniGain0 = collect0.sub(uni0Withdrwn);
         uniGain1 = collect1.sub(uni1Withdrwn);
     }
@@ -619,7 +622,7 @@ contract SigmaVault is
     function _lvWithdraw(
        lv memory _lv
     ) internal returns (uint256 lvWithdraw0, uint256 lvWithdraw1, uint256 lvGain0, uint256 lvGain1) {
-        console.log("Shares", _lv.yShares0, _lv.yShares1);
+        //console.log("Shares", _lv.yShares0, _lv.yShares1);
 
         if(_lv.yShares0 > 0) lvWithdraw0 = lendVault0.withdraw(_lv.yShares0); // max loss  # 0.01% 
         if(_lv.yShares1 > 0) lvWithdraw1 = lendVault1.withdraw(_lv.yShares1);
@@ -631,7 +634,7 @@ contract SigmaVault is
         internal
         returns (uint256 gain0, uint256 gain1)
     {   
-        console.log("totalGain",totalGain0, totalGain1);
+        //console.log("totalGain",totalGain0, totalGain1);
         uint256 feesToProtocol0;
         uint256 feesToProtocol1;
         if (protocolFee > 0) {
