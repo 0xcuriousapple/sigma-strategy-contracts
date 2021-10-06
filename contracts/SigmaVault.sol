@@ -225,13 +225,12 @@ contract SigmaVault is
             uint256 amount1
         )
     {
-        uint256 totalSupply = totalSupply();
         (uint256 total0, uint256 total1) = getTotalAmounts();
 
         // If total supply > 0, vault can't be empty
-        assert(totalSupply == 0 || total0 > 0 || total1 > 0);
+        assert(totalSupply() == 0 || total0 > 0 || total1 > 0);
 
-        if (totalSupply == 0) {
+        if (totalSupply() == 0) {
             // For first deposit, restrict to 50-50
             uint256 priceX96 = _getTwap();
             console.log("twap price", priceX96.mul(1e18).div(FixedPoint96.Q96));
@@ -261,11 +260,11 @@ contract SigmaVault is
 
         } else if (total0 == 0) {
             amount1 = amount1Desired;
-            shares = (amount1.mul(totalSupply)).div(total1);
+            shares = (amount1.mul(totalSupply())).div(total1);
 
         } else if (total1 == 0) {
             amount0 = amount0Desired;
-            shares = (amount0.mul(totalSupply)).div(total0);
+            shares = (amount0.mul(totalSupply())).div(total0);
 
         } else {
             uint256 cross = Math.min(
@@ -277,7 +276,7 @@ contract SigmaVault is
             // Round up amounts
             amount0 = ((cross.sub(1)).div(total1)).add(1);
             amount1 = ((cross.sub(1)).div(total0)).add(1);
-            shares = ((cross.mul(totalSupply)).div(total0)).div(total1);
+            shares = ((cross.mul(totalSupply())).div(total0)).div(total1);
         }
     }
 
@@ -512,15 +511,14 @@ contract SigmaVault is
     ) external nonReentrant returns (uint256 amount0, uint256 amount1) {
         require(shares > 0, "shares == 0");
         require(to != address(0) && to != address(this), "invalid recepient");
-        uint256 totalSupply = totalSupply();
 
         // Burn shares
         _burn(msg.sender, shares);
 
         // Calculate token amounts proportional to unused balances
         {
-        uint256 unusedAmount0 = getBalance0().mul(shares).div(totalSupply);
-        uint256 unusedAmount1 = getBalance1().mul(shares).div(totalSupply);
+        uint256 unusedAmount0 = getBalance0().mul(shares).div(totalSupply());
+        uint256 unusedAmount1 = getBalance1().mul(shares).div(totalSupply());
 
         amount0 = amount0.add(unusedAmount0);
         amount1 = amount1.add(unusedAmount1);
@@ -530,17 +528,17 @@ contract SigmaVault is
         {
         (uint128 totalLiquidity, , , , ) = _position(tick_lower, tick_upper);
         uint256 liquidity = (
-            (uint256(totalLiquidity).mul(shares)).div(totalSupply)
+            (uint256(totalLiquidity).mul(shares)).div(totalSupply())
         );
 
         uint256 yTotalShares0 = lendVault0.balanceOf(address(this));
         uint256 yTotalShares1 = lendVault1.balanceOf(address(this));
 
          lv memory _lv;
-        _lv.yShares0 =  (yTotalShares0.mul(shares)).div(totalSupply);
-        _lv.yShares1 =     (yTotalShares1.mul(shares)).div(totalSupply);
-        _lv.deposited0 =  (lvTotalDeposited0.mul(shares)).div(totalSupply);
-        _lv.deposited1 =     (lvTotalDeposited1.mul(shares)).div(totalSupply);
+        _lv.yShares0 =  (yTotalShares0.mul(shares)).div(totalSupply());
+        _lv.yShares1 =     (yTotalShares1.mul(shares)).div(totalSupply());
+        _lv.deposited0 =  (lvTotalDeposited0.mul(shares)).div(totalSupply());
+        _lv.deposited1 =     (lvTotalDeposited1.mul(shares)).div(totalSupply());
 
         (uint256 _amountWithdrawn0, uint256 _amountWithdrawn1) = 
         _executeWithdraw(_toUint128(liquidity), _lv);

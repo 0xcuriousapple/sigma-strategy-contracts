@@ -75,7 +75,7 @@ abstract contract Governable is Context {
      * Can only be called by the current governance.
      */
     function transferGovernance(address newGovernance)
-        public
+        external
         virtual
         onlyGovernance
     {
@@ -92,7 +92,7 @@ abstract contract Governable is Context {
      * Can only be called by the current teamMultisig or current governance.
      */
     function transferTeamMultisig(address newTeamMultisig)
-        public
+        external
         virtual
         onlyGovernanceOrTeamMultisig
     {

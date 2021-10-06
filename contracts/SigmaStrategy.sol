@@ -66,7 +66,7 @@ contract SigmaStrategy {
     function rebalance() external onlyKeeper {
 
         require(block.timestamp - lastRebalance >= rebalanceGap, "Premature Rebalance");
-        
+
         int24 tick = _getTick();
 
         // Check price has not moved a lot recently. This mitigates price
@@ -77,11 +77,10 @@ contract SigmaStrategy {
         require(deviation <= maxTwapDeviation, "maxTwapDeviation");
 
         // TODO : If possible check if its good idea to withdraw from yearn now
-
-        vault.rebalance(uniswapShare);
-
         lastRebalance = block.timestamp;
         lastTick = tick;
+        
+        vault.rebalance(uniswapShare);
     }
 
     function redeemFees() external onlyFeeCollector 

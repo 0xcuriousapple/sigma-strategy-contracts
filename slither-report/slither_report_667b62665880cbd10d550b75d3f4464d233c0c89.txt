@@ -1,0 +1,265 @@
+Commit State : https://github.com/Anon-Farm/sigma-strategy-contracts/tree/667b62665880cbd10d550b75d3f4464d233c0c89
+
+
+'npx hardhat compile --force' running
+Compiling 33 files with 0.7.6
+Compilation finished successfully
+
+@openzeppelin/contracts/token/ERC20/ERC20.sol:55:5: Warning: Visibility for constructor is ignored. If you want the contract to be non-deployable, making it "abstract" is sufficient.
+    constructor (string memory name_, string memory symbol_) public {
+    ^ (Relevant source part starts here and spans across multiple lines).
+
+@openzeppelin/contracts/utils/Pausable.sol:32:5: Warning: Visibility for constructor is ignored. If you want the contract to be non-deployable, making it "abstract" is sufficient.
+    constructor () internal {
+    ^ (Relevant source part starts here and spans across multiple lines).
+
+@openzeppelin/contracts/utils/ReentrancyGuard.sol:38:5: Warning: Visibility for constructor is ignored. If you want the contract to be non-deployable, making it "abstract" is sufficient.
+    constructor () internal {
+    ^ (Relevant source part starts here and spans across multiple lines).
+
+contracts/SigmaVault.sol:777:9: Warning: Unused function parameter. Remove or comment out the variable name to silence this warning.
+        bytes calldata data
+        ^-----------------^
+
+contracts/SigmaVault.sol:789:9: Warning: Unused function parameter. Remove or comment out the variable name to silence this warning.
+        bytes calldata data
+        ^-----------------^
+
+
+[93m
+SigmaVault._adjustTick(int24) (contracts/SigmaVault.sol#472-486) performs a multiplication on the result of a division:
+	-floorDown = (actualTick / tickSpacing) * tickSpacing (contracts/SigmaVault.sol#474)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#divide-before-multiply[0m
+[93m
+Reentrancy in SigmaVault.deposit(uint256,uint256,uint256,uint256,address) (contracts/SigmaVault.sol#153-201):
+	External calls:
+	- _poke(tick_lower,tick_upper) (contracts/SigmaVault.sol#176)
+		- pool.burn(tickLower,tickUpper,0) (contracts/SigmaVault.sol#209)
+	- token0.safeTransferFrom(msg.sender,address(this),amount0) (contracts/SigmaVault.sol#194)
+	- token1.safeTransferFrom(msg.sender,address(this),amount1) (contracts/SigmaVault.sol#196)
+	State variables written after the call(s):
+	- _mint(to,shares) (contracts/SigmaVault.sol#199)
+		- _totalSupply = _totalSupply.add(amount) (node_modules/@openzeppelin/contracts/token/ERC20/ERC20.sol#233)
+Reentrancy in SigmaVault.rebalance(uint8) (contracts/SigmaVault.sol#286-388):
+	External calls:
+	- _executeWithdraw(totalLiquidity,_lv) (contracts/SigmaVault.sol#301)
+		- lvWithdraw0 = lendVault0.withdraw(_lv.yShares0) (contracts/SigmaVault.sol#625)
+		- (uni0Withdrwn,uni1Withdrwn) = pool.burn(tick_lower,tick_upper,liquidity) (contracts/SigmaVault.sol#604)
+		- lvWithdraw1 = lendVault1.withdraw(_lv.yShares1) (contracts/SigmaVault.sol#626)
+		- (collect0,collect1) = pool.collect(address(this),tick_lower,tick_upper,type()(uint128).max,type()(uint128).max) (contracts/SigmaVault.sol#608-614)
+	- _swapExcess(totalAssets0,totalAssets1) (contracts/SigmaVault.sol#309)
+		- pool.swap(address(this),false,int256(swapAmount),uint160(((uint256(sqrtPriceX96)).mul(110)).div(100)),) (contracts/SigmaVault.sol#446-452)
+		- pool.swap(address(this),true,int256(swapAmount),uint160(((uint256(sqrtPriceX96)).mul(90)).div(100)),) (contracts/SigmaVault.sol#425-431)
+	State variables written after the call(s):
+	- tick_lower = _adjustTick(TickMath.getTickAtSqrtRatio(sqrtPriceLower)) (contracts/SigmaVault.sol#356)
+	- tick_upper = _adjustTick(TickMath.getTickAtSqrtRatio(sqrtPriceUpper)) (contracts/SigmaVault.sol#357)
+Reentrancy in SigmaVault.rebalance(uint8) (contracts/SigmaVault.sol#286-388):
+	External calls:
+	- _executeWithdraw(totalLiquidity,_lv) (contracts/SigmaVault.sol#301)
+		- lvWithdraw0 = lendVault0.withdraw(_lv.yShares0) (contracts/SigmaVault.sol#625)
+		- (uni0Withdrwn,uni1Withdrwn) = pool.burn(tick_lower,tick_upper,liquidity) (contracts/SigmaVault.sol#604)
+		- lvWithdraw1 = lendVault1.withdraw(_lv.yShares1) (contracts/SigmaVault.sol#626)
+		- (collect0,collect1) = pool.collect(address(this),tick_lower,tick_upper,type()(uint128).max,type()(uint128).max) (contracts/SigmaVault.sol#608-614)
+	- _swapExcess(totalAssets0,totalAssets1) (contracts/SigmaVault.sol#309)
+		- pool.swap(address(this),false,int256(swapAmount),uint160(((uint256(sqrtPriceX96)).mul(110)).div(100)),) (contracts/SigmaVault.sol#446-452)
+		- pool.swap(address(this),true,int256(swapAmount),uint160(((uint256(sqrtPriceX96)).mul(90)).div(100)),) (contracts/SigmaVault.sol#425-431)
+	- _mintLiquidity(tick_lower,tick_upper,liq) (contracts/SigmaVault.sol#376)
+		- pool.mint(address(this),tickLower,tickUpper,liquidity,) (contracts/SigmaVault.sol#657)
+	State variables written after the call(s):
+	- lvTotalDeposited0 = totalAssets0 (contracts/SigmaVault.sol#381)
+	- lvTotalDeposited1 = totalAssets1 (contracts/SigmaVault.sol#382)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#reentrancy-vulnerabilities-1[0m
+[93m
+SigmaVault.rebalance(uint8)._lv (contracts/SigmaVault.sol#296) is a local variable never initialized
+SigmaVault.withdraw(uint256,uint256,uint256,address)._lv (contracts/SigmaVault.sol#537) is a local variable never initialized
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#uninitialized-local-variables[0m
+[93m
+SigmaVault._poke(int24,int24) (contracts/SigmaVault.sol#206-211) ignores return value by pool.burn(tickLower,tickUpper,0) (contracts/SigmaVault.sol#209)
+SigmaVault.rebalance(uint8) (contracts/SigmaVault.sol#286-388) ignores return value by lendVault0.deposit(totalAssets0) (contracts/SigmaVault.sol#386)
+SigmaVault.rebalance(uint8) (contracts/SigmaVault.sol#286-388) ignores return value by lendVault1.deposit(totalAssets1) (contracts/SigmaVault.sol#387)
+SigmaVault._swap0to1(uint256,uint256,uint256,uint256,uint256) (contracts/SigmaVault.sol#412-433) ignores return value by pool.swap(address(this),true,int256(swapAmount),uint160(((uint256(sqrtPriceX96)).mul(90)).div(100)),) (contracts/SigmaVault.sol#425-431)
+SigmaVault._swap1to0(uint256,uint256,uint256,uint256,uint256) (contracts/SigmaVault.sol#435-454) ignores return value by pool.swap(address(this),false,int256(swapAmount),uint160(((uint256(sqrtPriceX96)).mul(110)).div(100)),) (contracts/SigmaVault.sol#446-452)
+SigmaVault._mintLiquidity(int24,int24,uint128) (contracts/SigmaVault.sol#651-659) ignores return value by pool.mint(address(this),tickLower,tickUpper,liquidity,) (contracts/SigmaVault.sol#657)
+SigmaVault.emergencyWithdrawUni() (contracts/SigmaVault.sol#872-882) ignores return value by pool.burn(tick_lower,tick_upper,totalLiquidity) (contracts/SigmaVault.sol#874)
+SigmaVault.emergencyWithdrawUni() (contracts/SigmaVault.sol#872-882) ignores return value by pool.collect(address(this),tick_lower,tick_upper,type()(uint128).max,type()(uint128).max) (contracts/SigmaVault.sol#875-881)
+SigmaVault.emergencyWithdrawL0() (contracts/SigmaVault.sol#884-887) ignores return value by lendVault0.withdraw() (contracts/SigmaVault.sol#886)
+SigmaVault.emergencyWithdrawL1() (contracts/SigmaVault.sol#888-891) ignores return value by lendVault1.withdraw() (contracts/SigmaVault.sol#890)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#unused-return[0m
+[92m
+SigmaStrategy.setKeeper(address) (contracts/SigmaStrategy.sol#107-109) should emit an event for: 
+	- keeper = _keeper (contracts/SigmaStrategy.sol#108) 
+SigmaStrategy.setFeeCollector(address) (contracts/SigmaStrategy.sol#133-138) should emit an event for: 
+	- feeCollector = _feeCollector (contracts/SigmaStrategy.sol#137) 
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#missing-events-access-control[0m
+[92m
+SigmaStrategy.setTwapDuration(uint32) (contracts/SigmaStrategy.sol#124-127) should emit an event for: 
+	- twapDuration = _twapDuration (contracts/SigmaStrategy.sol#126) 
+SigmaVault.collectFees(uint256,uint256,address) (contracts/SigmaVault.sol#802-807) should emit an event for: 
+	- accruedProtocolFees0 = accruedProtocolFees0.sub(amount0) (contracts/SigmaVault.sol#803) 
+	- accruedProtocolFees1 = accruedProtocolFees1.sub(amount1) (contracts/SigmaVault.sol#804) 
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#missing-events-arithmetic[0m
+[92m
+SigmaStrategy.constructor(address,uint8,int24,uint32,uint32,address,address)._keeper (contracts/SigmaStrategy.sol#43) lacks a zero-check on :
+		- keeper = _keeper (contracts/SigmaStrategy.sol#56)
+SigmaStrategy.constructor(address,uint8,int24,uint32,uint32,address,address)._feeCollector (contracts/SigmaStrategy.sol#44) lacks a zero-check on :
+		- feeCollector = _feeCollector (contracts/SigmaStrategy.sol#57)
+SigmaStrategy.setKeeper(address)._keeper (contracts/SigmaStrategy.sol#107) lacks a zero-check on :
+		- keeper = _keeper (contracts/SigmaStrategy.sol#108)
+SigmaStrategy.setFeeCollector(address)._feeCollector (contracts/SigmaStrategy.sol#133) lacks a zero-check on :
+		- feeCollector = _feeCollector (contracts/SigmaStrategy.sol#137)
+SigmaVault.setStrategy(address)._strategy (contracts/SigmaVault.sol#826) lacks a zero-check on :
+		- strategy = _strategy (contracts/SigmaVault.sol#830)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#missing-zero-address-validation[0m
+[92m
+Reentrancy in SigmaVault._executeWithdraw(uint128,SigmaVault.lv) (contracts/SigmaVault.sol#561-596):
+	External calls:
+	- (uni0Withdrawn,uni1Withdrawn,uniGain0,uniGain1) = _uniBurnAndCollect(_toUint128(liquidity)) (contracts/SigmaVault.sol#572)
+		- (uni0Withdrwn,uni1Withdrwn) = pool.burn(tick_lower,tick_upper,liquidity) (contracts/SigmaVault.sol#604)
+		- (collect0,collect1) = pool.collect(address(this),tick_lower,tick_upper,type()(uint128).max,type()(uint128).max) (contracts/SigmaVault.sol#608-614)
+	- (lvWithdraw0,lvWithdraw1,lvGain0,lvGain1) = _lvWithdraw(_lv) (contracts/SigmaVault.sol#584-586)
+		- lvWithdraw0 = lendVault0.withdraw(_lv.yShares0) (contracts/SigmaVault.sol#625)
+		- lvWithdraw1 = lendVault1.withdraw(_lv.yShares1) (contracts/SigmaVault.sol#626)
+	State variables written after the call(s):
+	- (gain0,gain1) = _accureFees(uniGain0.add(lvGain0),uniGain1.add(lvGain1)) (contracts/SigmaVault.sol#589-592)
+		- accruedProtocolFees0 = accruedProtocolFees0.add(feesToProtocol0) (contracts/SigmaVault.sol#641)
+	- (gain0,gain1) = _accureFees(uniGain0.add(lvGain0),uniGain1.add(lvGain1)) (contracts/SigmaVault.sol#589-592)
+		- accruedProtocolFees1 = accruedProtocolFees1.add(feesToProtocol1) (contracts/SigmaVault.sol#642)
+Reentrancy in SigmaVault.deposit(uint256,uint256,uint256,uint256,address) (contracts/SigmaVault.sol#153-201):
+	External calls:
+	- _poke(tick_lower,tick_upper) (contracts/SigmaVault.sol#176)
+		- pool.burn(tickLower,tickUpper,0) (contracts/SigmaVault.sol#209)
+	- token0.safeTransferFrom(msg.sender,address(this),amount0) (contracts/SigmaVault.sol#194)
+	- token1.safeTransferFrom(msg.sender,address(this),amount1) (contracts/SigmaVault.sol#196)
+	State variables written after the call(s):
+	- _mint(to,shares) (contracts/SigmaVault.sol#199)
+		- _balances[account] = _balances[account].add(amount) (node_modules/@openzeppelin/contracts/token/ERC20/ERC20.sol#234)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#reentrancy-vulnerabilities-2[0m
+[92m
+Reentrancy in SigmaVault.deposit(uint256,uint256,uint256,uint256,address) (contracts/SigmaVault.sol#153-201):
+	External calls:
+	- _poke(tick_lower,tick_upper) (contracts/SigmaVault.sol#176)
+		- pool.burn(tickLower,tickUpper,0) (contracts/SigmaVault.sol#209)
+	- token0.safeTransferFrom(msg.sender,address(this),amount0) (contracts/SigmaVault.sol#194)
+	- token1.safeTransferFrom(msg.sender,address(this),amount1) (contracts/SigmaVault.sol#196)
+	Event emitted after the call(s):
+	- Deposit(msg.sender,to,shares,amount0,amount1) (contracts/SigmaVault.sol#200)
+	- Transfer(address(0),account,amount) (node_modules/@openzeppelin/contracts/token/ERC20/ERC20.sol#235)
+		- _mint(to,shares) (contracts/SigmaVault.sol#199)
+Reentrancy in SigmaVault.withdraw(uint256,uint256,uint256,address) (contracts/SigmaVault.sol#506-559):
+	External calls:
+	- (_amountWithdrawn0,_amountWithdrawn1) = _executeWithdraw(_toUint128(liquidity),_lv) (contracts/SigmaVault.sol#543-544)
+		- lvWithdraw0 = lendVault0.withdraw(_lv.yShares0) (contracts/SigmaVault.sol#625)
+		- (uni0Withdrwn,uni1Withdrwn) = pool.burn(tick_lower,tick_upper,liquidity) (contracts/SigmaVault.sol#604)
+		- lvWithdraw1 = lendVault1.withdraw(_lv.yShares1) (contracts/SigmaVault.sol#626)
+		- (collect0,collect1) = pool.collect(address(this),tick_lower,tick_upper,type()(uint128).max,type()(uint128).max) (contracts/SigmaVault.sol#608-614)
+	- token0.safeTransfer(to,amount0) (contracts/SigmaVault.sol#555)
+	- token1.safeTransfer(to,amount1) (contracts/SigmaVault.sol#556)
+	Event emitted after the call(s):
+	- Withdraw(msg.sender,to,shares,amount0,amount1) (contracts/SigmaVault.sol#558)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#reentrancy-vulnerabilities-3[0m
+[92m
+SigmaStrategy.rebalance() (contracts/SigmaStrategy.sol#66-84) uses timestamp for comparisons
+	Dangerous comparisons:
+	- require(bool,string)(block.timestamp - lastRebalance >= rebalanceGap,Premature Rebalance) (contracts/SigmaStrategy.sol#68)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#block-timestamp[0m
+[92m
+Different versions of Solidity is used:
+	- Version used: ['0.7.6', '>=0.4.0', '>=0.4.22<0.9.0', '>=0.5.0', '>=0.6.0<0.8.0', '>=0.6.2<0.8.0', '>=0.7.0', '^0.7.6']
+	- >=0.6.0<0.8.0 (node_modules/@openzeppelin/contracts/math/Math.sol#3)
+	- >=0.6.0<0.8.0 (node_modules/@openzeppelin/contracts/math/SafeMath.sol#3)
+	- >=0.6.0<0.8.0 (node_modules/@openzeppelin/contracts/token/ERC20/ERC20.sol#3)
+	- >=0.6.0<0.8.0 (node_modules/@openzeppelin/contracts/token/ERC20/IERC20.sol#3)
+	- >=0.6.0<0.8.0 (node_modules/@openzeppelin/contracts/token/ERC20/SafeERC20.sol#3)
+	- >=0.6.2<0.8.0 (node_modules/@openzeppelin/contracts/utils/Address.sol#3)
+	- >=0.6.0<0.8.0 (node_modules/@openzeppelin/contracts/utils/Context.sol#3)
+	- >=0.6.0<0.8.0 (node_modules/@openzeppelin/contracts/utils/Pausable.sol#3)
+	- >=0.6.0<0.8.0 (node_modules/@openzeppelin/contracts/utils/ReentrancyGuard.sol#3)
+	- >=0.5.0 (node_modules/@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol#2)
+	- >=0.5.0 (node_modules/@uniswap/v3-core/contracts/interfaces/callback/IUniswapV3MintCallback.sol#2)
+	- >=0.5.0 (node_modules/@uniswap/v3-core/contracts/interfaces/callback/IUniswapV3SwapCallback.sol#2)
+	- >=0.5.0 (node_modules/@uniswap/v3-core/contracts/interfaces/pool/IUniswapV3PoolActions.sol#2)
+	- >=0.5.0 (node_modules/@uniswap/v3-core/contracts/interfaces/pool/IUniswapV3PoolDerivedState.sol#2)
+	- >=0.5.0 (node_modules/@uniswap/v3-core/contracts/interfaces/pool/IUniswapV3PoolEvents.sol#2)
+	- >=0.5.0 (node_modules/@uniswap/v3-core/contracts/interfaces/pool/IUniswapV3PoolImmutables.sol#2)
+	- >=0.5.0 (node_modules/@uniswap/v3-core/contracts/interfaces/pool/IUniswapV3PoolOwnerActions.sol#2)
+	- >=0.5.0 (node_modules/@uniswap/v3-core/contracts/interfaces/pool/IUniswapV3PoolState.sol#2)
+	- >=0.4.0 (node_modules/@uniswap/v3-core/contracts/libraries/FixedPoint96.sol#2)
+	- >=0.4.0 (node_modules/@uniswap/v3-core/contracts/libraries/FullMath.sol#2)
+	- >=0.7.0 (node_modules/@uniswap/v3-core/contracts/libraries/LowGasSafeMath.sol#2)
+	- >=0.5.0 (node_modules/@uniswap/v3-core/contracts/libraries/SafeCast.sol#2)
+	- >=0.5.0 (node_modules/@uniswap/v3-core/contracts/libraries/SqrtPriceMath.sol#2)
+	- >=0.5.0 (node_modules/@uniswap/v3-core/contracts/libraries/TickMath.sol#2)
+	- >=0.5.0 (node_modules/@uniswap/v3-core/contracts/libraries/UnsafeMath.sol#2)
+	- >=0.5.0 (node_modules/@uniswap/v3-periphery/contracts/libraries/LiquidityAmounts.sol#2)
+	- >=0.5.0 (node_modules/@uniswap/v3-periphery/contracts/libraries/PositionKey.sol#2)
+	- ^0.7.6 (contracts/SigmaStrategy.sol#2)
+	- 0.7.6 (contracts/SigmaVault.sol#3)
+	- 0.7.6 (contracts/interfaces/ISigmaVault.sol#3)
+	- 0.7.6 (contracts/interfaces/YearnVaultAPI.sol#3)
+	- 0.7.6 (contracts/utils/Governable.sol#3)
+	- >=0.4.22<0.9.0 (node_modules/hardhat/console.sol#2)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#different-pragma-directives-are-used[0m
+[92m
+Parameter SigmaStrategy.setKeeper(address)._keeper (contracts/SigmaStrategy.sol#107) is not in mixedCase
+Parameter SigmaStrategy.setUniSwapShare(uint8)._uniswapShare (contracts/SigmaStrategy.sol#111) is not in mixedCase
+Parameter SigmaStrategy.setMaxTwapDeviation(int24)._maxTwapDeviation (contracts/SigmaStrategy.sol#116) is not in mixedCase
+Parameter SigmaStrategy.setTwapDuration(uint32)._twapDuration (contracts/SigmaStrategy.sol#124) is not in mixedCase
+Parameter SigmaStrategy.setRebalanceGap(uint32)._rebalanceGap (contracts/SigmaStrategy.sol#129) is not in mixedCase
+Parameter SigmaStrategy.setFeeCollector(address)._feeCollector (contracts/SigmaStrategy.sol#133) is not in mixedCase
+Struct SigmaVault.lv (contracts/SigmaVault.sol#84-89) is not in CapWords
+Function SigmaVault._getTwap() (contracts/SigmaVault.sol#457-470) is not in mixedCase
+Parameter SigmaVault.collectFees(uint256,uint256,address)._feeCollector (contracts/SigmaVault.sol#802) is not in mixedCase
+Parameter SigmaVault.setStrategy(address)._strategy (contracts/SigmaVault.sol#826) is not in mixedCase
+Parameter SigmaVault.setSwapExcessIgnore(uint256)._swapExcessIgnore (contracts/SigmaVault.sol#840) is not in mixedCase
+Parameter SigmaVault.setProtocolFee(uint256)._protocolFee (contracts/SigmaVault.sol#851) is not in mixedCase
+Parameter SigmaVault.setMaxTotalSupply(uint256)._maxTotalSupply (contracts/SigmaVault.sol#862) is not in mixedCase
+Variable SigmaVault.tick_lower (contracts/SigmaVault.sol#101) is not in mixedCase
+Variable SigmaVault.tick_upper (contracts/SigmaVault.sol#102) is not in mixedCase
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#conformance-to-solidity-naming-conventions[0m
+[92m
+Variable SigmaVault.withdraw(uint256,uint256,uint256,address)._amountWithdrawn0 (contracts/SigmaVault.sol#543) is too similar to SigmaVault.withdraw(uint256,uint256,uint256,address)._amountWithdrawn1 (contracts/SigmaVault.sol#543)
+Variable SigmaVault.constructor(address,address,address,uint256,uint256,uint256)._lendVault0 (contracts/SigmaVault.sol#116) is too similar to SigmaVault.constructor(address,address,address,uint256,uint256,uint256)._lendVault1 (contracts/SigmaVault.sol#117)
+Variable SigmaVault.accruedProtocolFees0 (contracts/SigmaVault.sol#103) is too similar to SigmaVault.accruedProtocolFees1 (contracts/SigmaVault.sol#104)
+Variable SigmaVault.uniswapV3SwapCallback(int256,int256,bytes).amount0Delta (contracts/SigmaVault.sol#787) is too similar to IUniswapV3SwapCallback.uniswapV3SwapCallback(int256,int256,bytes).amount1Delta (node_modules/@uniswap/v3-core/contracts/interfaces/callback/IUniswapV3SwapCallback.sol#18)
+Variable SigmaVault.uniswapV3SwapCallback(int256,int256,bytes).amount0Delta (contracts/SigmaVault.sol#787) is too similar to SigmaVault.uniswapV3SwapCallback(int256,int256,bytes).amount1Delta (contracts/SigmaVault.sol#788)
+Variable SigmaVault.deposit(uint256,uint256,uint256,uint256,address).amount0Desired (contracts/SigmaVault.sol#154) is too similar to SigmaVault._calcSharesAndAmounts(uint256,uint256).amount1Desired (contracts/SigmaVault.sol#218)
+Variable SigmaVault._calcSharesAndAmounts(uint256,uint256).amount0Desired (contracts/SigmaVault.sol#217) is too similar to SigmaVault._calcSharesAndAmounts(uint256,uint256).amount1Desired (contracts/SigmaVault.sol#218)
+Variable SigmaVault.deposit(uint256,uint256,uint256,uint256,address).amount0Desired (contracts/SigmaVault.sol#154) is too similar to SigmaVault.deposit(uint256,uint256,uint256,uint256,address).amount1Desired (contracts/SigmaVault.sol#155)
+Variable IUniswapV3SwapCallback.uniswapV3SwapCallback(int256,int256,bytes).amount0Delta (node_modules/@uniswap/v3-core/contracts/interfaces/callback/IUniswapV3SwapCallback.sol#17) is too similar to SigmaVault.uniswapV3SwapCallback(int256,int256,bytes).amount1Delta (contracts/SigmaVault.sol#788)
+Variable SigmaVault._calcSharesAndAmounts(uint256,uint256).amount0Desired (contracts/SigmaVault.sol#217) is too similar to SigmaVault.deposit(uint256,uint256,uint256,uint256,address).amount1Desired (contracts/SigmaVault.sol#155)
+Variable SigmaVault._swap0to1(uint256,uint256,uint256,uint256,uint256).excess0Ignore (contracts/SigmaVault.sol#419) is too similar to SigmaVault._swap1to0(uint256,uint256,uint256,uint256,uint256).excess1Ignore (contracts/SigmaVault.sol#442)
+Variable SigmaVault._accureFees(uint256,uint256).feesToProtocol0 (contracts/SigmaVault.sol#636) is too similar to SigmaVault._accureFees(uint256,uint256).feesToProtocol1 (contracts/SigmaVault.sol#637)
+Variable SigmaVault.lvTotalDeposited0 (contracts/SigmaVault.sol#93) is too similar to SigmaVault.lvTotalDeposited1 (contracts/SigmaVault.sol#94)
+Variable SigmaVault._lvWithdraw(SigmaVault.lv).lvWithdraw0 (contracts/SigmaVault.sol#622) is too similar to SigmaVault._lvWithdraw(SigmaVault.lv).lvWithdraw1 (contracts/SigmaVault.sol#622)
+Variable SigmaVault._lvWithdraw(SigmaVault.lv).lvWithdraw0 (contracts/SigmaVault.sol#622) is too similar to SigmaVault._executeWithdraw(uint128,SigmaVault.lv).lvWithdraw1 (contracts/SigmaVault.sol#584)
+Variable SigmaVault._executeWithdraw(uint128,SigmaVault.lv).lvWithdraw0 (contracts/SigmaVault.sol#584) is too similar to SigmaVault._executeWithdraw(uint128,SigmaVault.lv).lvWithdraw1 (contracts/SigmaVault.sol#584)
+Variable SigmaVault._executeWithdraw(uint128,SigmaVault.lv).lvWithdraw0 (contracts/SigmaVault.sol#584) is too similar to SigmaVault._lvWithdraw(SigmaVault.lv).lvWithdraw1 (contracts/SigmaVault.sol#622)
+Variable SigmaVault.getPositionAmounts().tokensOwed0 (contracts/SigmaVault.sol#700) is too similar to SigmaVault.getPositionAmounts().tokensOwed1 (contracts/SigmaVault.sol#701)
+Variable SigmaVault.rebalance(uint8).totalAssets0 (contracts/SigmaVault.sol#306) is too similar to SigmaVault.rebalance(uint8).totalAssets1 (contracts/SigmaVault.sol#307)
+Variable SigmaVault._swap0to1(uint256,uint256,uint256,uint256,uint256).totalAssets0 (contracts/SigmaVault.sol#412) is too similar to SigmaVault._swap0to1(uint256,uint256,uint256,uint256,uint256).totalAssets1 (contracts/SigmaVault.sol#412)
+Variable SigmaVault._swapExcess(uint256,uint256).totalAssets0 (contracts/SigmaVault.sol#390) is too similar to SigmaVault._swapExcess(uint256,uint256).totalAssets1 (contracts/SigmaVault.sol#390)
+Variable SigmaVault._swap0to1(uint256,uint256,uint256,uint256,uint256).totalAssets0 (contracts/SigmaVault.sol#412) is too similar to SigmaVault._swap1to0(uint256,uint256,uint256,uint256,uint256).totalAssets1 (contracts/SigmaVault.sol#435)
+Variable SigmaVault._swapExcess(uint256,uint256).totalAssets0 (contracts/SigmaVault.sol#390) is too similar to SigmaVault._swap0to1(uint256,uint256,uint256,uint256,uint256).totalAssets1 (contracts/SigmaVault.sol#412)
+Variable SigmaVault._swap0to1(uint256,uint256,uint256,uint256,uint256).totalAssets0 (contracts/SigmaVault.sol#412) is too similar to SigmaVault.rebalance(uint8).totalAssets1 (contracts/SigmaVault.sol#307)
+Variable SigmaVault._swapExcess(uint256,uint256).totalAssets0 (contracts/SigmaVault.sol#390) is too similar to SigmaVault._swap1to0(uint256,uint256,uint256,uint256,uint256).totalAssets1 (contracts/SigmaVault.sol#435)
+Variable SigmaVault._swap1to0(uint256,uint256,uint256,uint256,uint256).totalAssets0 (contracts/SigmaVault.sol#435) is too similar to SigmaVault.rebalance(uint8).totalAssets1 (contracts/SigmaVault.sol#307)
+Variable SigmaVault._swapExcess(uint256,uint256).totalAssets0 (contracts/SigmaVault.sol#390) is too similar to SigmaVault.rebalance(uint8).totalAssets1 (contracts/SigmaVault.sol#307)
+Variable SigmaVault._swap1to0(uint256,uint256,uint256,uint256,uint256).totalAssets0 (contracts/SigmaVault.sol#435) is too similar to SigmaVault._swap1to0(uint256,uint256,uint256,uint256,uint256).totalAssets1 (contracts/SigmaVault.sol#435)
+Variable SigmaVault.rebalance(uint8).totalAssets0 (contracts/SigmaVault.sol#306) is too similar to SigmaVault._swap0to1(uint256,uint256,uint256,uint256,uint256).totalAssets1 (contracts/SigmaVault.sol#412)
+Variable SigmaVault._swap1to0(uint256,uint256,uint256,uint256,uint256).totalAssets0 (contracts/SigmaVault.sol#435) is too similar to SigmaVault._swapExcess(uint256,uint256).totalAssets1 (contracts/SigmaVault.sol#390)
+Variable SigmaVault.rebalance(uint8).totalAssets0 (contracts/SigmaVault.sol#306) is too similar to SigmaVault._swap1to0(uint256,uint256,uint256,uint256,uint256).totalAssets1 (contracts/SigmaVault.sol#435)
+Variable SigmaVault.rebalance(uint8).totalAssets0 (contracts/SigmaVault.sol#306) is too similar to SigmaVault._swapExcess(uint256,uint256).totalAssets1 (contracts/SigmaVault.sol#390)
+Variable SigmaVault._swap0to1(uint256,uint256,uint256,uint256,uint256).totalAssets0 (contracts/SigmaVault.sol#412) is too similar to SigmaVault._swapExcess(uint256,uint256).totalAssets1 (contracts/SigmaVault.sol#390)
+Variable SigmaVault._swap1to0(uint256,uint256,uint256,uint256,uint256).totalAssets0 (contracts/SigmaVault.sol#435) is too similar to SigmaVault._swap0to1(uint256,uint256,uint256,uint256,uint256).totalAssets1 (contracts/SigmaVault.sol#412)
+Variable SigmaVault._swap0to1(uint256,uint256,uint256,uint256,uint256).totalExcess0 (contracts/SigmaVault.sol#417) is too similar to SigmaVault._swap1to0(uint256,uint256,uint256,uint256,uint256).totalExcess1 (contracts/SigmaVault.sol#440)
+Variable SigmaVault._swap0to1(uint256,uint256,uint256,uint256,uint256).totalExcess0InTermsOf1 (contracts/SigmaVault.sol#416) is too similar to SigmaVault._swap1to0(uint256,uint256,uint256,uint256,uint256).totalExcess1InTermsOf0 (contracts/SigmaVault.sol#439)
+Variable SigmaVault._executeWithdraw(uint128,SigmaVault.lv).uni0Withdrawn (contracts/SigmaVault.sol#572) is too similar to SigmaVault._executeWithdraw(uint128,SigmaVault.lv).uni1Withdrawn (contracts/SigmaVault.sol#572)
+Variable SigmaVault._uniBurnAndCollect(uint128).uni0Withdrwn (contracts/SigmaVault.sol#601) is too similar to SigmaVault._uniBurnAndCollect(uint128).uni1Withdrwn (contracts/SigmaVault.sol#601)
+Variable SigmaVault.rebalance(uint8).uniswapDeposit0 (contracts/SigmaVault.sol#334) is too similar to SigmaVault.rebalance(uint8).uniswapDeposit1 (contracts/SigmaVault.sol#335)
+Variable SigmaVault.withdraw(uint256,uint256,uint256,address).unusedAmount0 (contracts/SigmaVault.sol#520) is too similar to SigmaVault.withdraw(uint256,uint256,uint256,address).unusedAmount1 (contracts/SigmaVault.sol#521)
+Variable SigmaVault.rebalance(uint8).yTotalShares0 (contracts/SigmaVault.sol#293) is too similar to SigmaVault.withdraw(uint256,uint256,uint256,address).yTotalShares1 (contracts/SigmaVault.sol#535)
+Variable SigmaVault.withdraw(uint256,uint256,uint256,address).yTotalShares0 (contracts/SigmaVault.sol#534) is too similar to SigmaVault.withdraw(uint256,uint256,uint256,address).yTotalShares1 (contracts/SigmaVault.sol#535)
+Variable SigmaVault.rebalance(uint8).yTotalShares0 (contracts/SigmaVault.sol#293) is too similar to SigmaVault.rebalance(uint8).yTotalShares1 (contracts/SigmaVault.sol#294)
+Variable SigmaVault.withdraw(uint256,uint256,uint256,address).yTotalShares0 (contracts/SigmaVault.sol#534) is too similar to SigmaVault.rebalance(uint8).yTotalShares1 (contracts/SigmaVault.sol#294)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#variable-names-are-too-similar[0m
+. analyzed (33 contracts with 75 detectors), 90 result(s) found
