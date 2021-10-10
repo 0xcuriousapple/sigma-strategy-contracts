@@ -3,11 +3,10 @@ import { erc20ABI } from './utils/abis';
 import { toBigNumber, tokenAmount } from './utils/helpers';
 import { ethers, deployments } from 'hardhat';
 import { SigmaVaultDetails } from '../constants.json';
-import stealFunds from './utils/stealFunds';
+import { stealFunds } from './utils/stealFunds';
 
 describe('SigmaVault', function () {
-  // First Deposit
-  it('First Deposit', async function () {
+  it('Deposit Unit Test', async function () {
     await deployments.fixture(['SigmaVault', 'SigmaStrategy', 'PostDeploymentSetup']);
     const SigmaVault = await ethers.getContract('SigmaVault');
     const token0Address = await SigmaVault.token0();
@@ -59,14 +58,10 @@ describe('SigmaVault', function () {
 
     // console.log(Number(await token0.balanceOf(signers[0].address)));
     // console.log(Number(await token1.balanceOf(signers[0].address)));
-
     const sharesMinted = await SigmaVault.balanceOf(signers[0].address);
 
     expect(await token0.balanceOf(signers[0].address)).to.equal(token0Before.sub(token0consumed));
     expect(await token1.balanceOf(signers[0].address)).to.equal(tokenAmount('0', 6));
     expect(sharesMinted).to.equal(token0consumed);
   });
-
-  // Second Deposit
-  // During Rebalance
 });

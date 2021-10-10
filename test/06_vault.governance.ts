@@ -2,7 +2,7 @@ import { expect } from 'chai';
 import { erc20ABI } from './utils/abis';
 import { toBigNumber, tokenAmount } from './utils/helpers';
 import { ethers, deployments } from 'hardhat';
-import stealFunds from './utils/stealFunds';
+import { stealFunds } from './utils/stealFunds';
 
 describe('SigmaVault Governance', function () {
   it('Sweep should work as expected', async function () {

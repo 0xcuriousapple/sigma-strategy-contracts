@@ -24,4 +24,20 @@ const stealFunds = async (
   await token.transfer(receiverAddress, tokenAmount(amount, tokenDecimals));
 };
 
-export default stealFunds;
+const stealFundsAbs = async (
+  tokenAddress: string,
+  receiverAddress: string,
+  amount: string,
+  whaleAddress: string
+) => {
+  await hre.network.provider.request({
+    method: 'hardhat_impersonateAccount',
+    params: [whaleAddress],
+  });
+  const signer = await hre.ethers.getSigner(whaleAddress);
+  await hre.network.provider.send('hardhat_setBalance', [signer.address, '0x1000000000000000000']);
+  const token = new hre.ethers.Contract(tokenAddress, erc20ABI, signer);
+  await token.transfer(receiverAddress, amount);
+};
+
+export { stealFunds, stealFundsAbs };
