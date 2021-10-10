@@ -396,8 +396,6 @@ contract SigmaVault is
         uint256 total0ValueIn1 = FullMath.mulDiv(totalAssets0, priceX96, FixedPoint96.Q96);
         uint256 total1ValueIn0 = FullMath.mulDiv(totalAssets1, FixedPoint96.Q96, priceX96);
 
-        // console.log("Asset0", totalAssets0,total0ValueIn1, priceX96);
-        // console.log("Asset1", totalAssets1,total1ValueIn0, priceX96);
         if (total0ValueIn1 > totalAssets1) {
             //token0 is in excess
             //Swap excess token0 into token1
@@ -443,7 +441,7 @@ contract SigmaVault is
         uint256 excess1Ignore = FullMath.mulDiv(totalAssets1, swapExcessIgnore, 1e6);
         
         if(totalExcess1> excess1Ignore){
-            uint256 swapAmount = totalExcess1.div(FullMath.mulDiv(2, 1e6 - fee, 1e6));
+            uint256 swapAmount = FullMath.mulDiv(totalExcess1, 1e6, 2*(1e6-fee));
             pool.swap(
                 address(this),
                 false,
@@ -574,11 +572,13 @@ contract SigmaVault is
     {   
         //Step 1
         (uint256 uni0Withdrawn, uint256 uni1Withdrawn, uint256 uniGain0, uint256 uniGain1) = _uniBurnAndCollect(_toUint128(liquidity));
-
+    
         // console.log("Withdraw");
         // console.log("Liq:",  liquidity);
         // console.log("uni0Withdrawn: ", uni0Withdrawn);
         // console.log("uni1Withdrawn: ", uni1Withdrawn);
+        // console.log("uni0Gain: ", uniGain0);
+        // console.log("uni1Gain: ", uniGain1);
         // console.log("yShares0: ", _lv.yShares0);
         // console.log("yShares1: ",_lv.yShares1);
         // console.log("lvDeposited0: ",_lv.deposited0);
@@ -588,6 +588,10 @@ contract SigmaVault is
         (uint256 lvWithdraw0, uint256 lvWithdraw1, uint256 lvGain0, uint256 lvGain1) = _lvWithdraw(
           _lv
         );
+        // console.log("lvWithdraw0: ", lvWithdraw0);
+        // console.log("lvWithdraw1: ", lvWithdraw1);
+        // console.log("lvGain0: ", lvGain0);
+        // console.log("lvGain1: ", lvGain1);
         // console.log("Gain", lvGain0, lvGain1);
         // Step 3
         (uint256 gain0, uint256 gain1) = _accureFees(
@@ -681,7 +685,9 @@ contract SigmaVault is
         returns (uint256 total0, uint256 total1)
     {
         (uint256 uniAmount0, uint256 uniAmount1) = getPositionAmounts();
+        //console.log('GetTotalAmounts uni', uniAmount0, uniAmount1);
         (uint256 lvAmount0, uint256 lvAmount1) = getLvAmounts();
+        //console.log('GetTotalAmounts lv', lvAmount0, lvAmount1);
         // console.log('getUniAmounts',uniAmount0, uniAmount1);
         // console.log('LVDeposited',lvTotalDeposited0, lvTotalDeposited1);
         // console.log('getLVAmounts',lvAmount0, lvAmount1);
@@ -713,7 +719,6 @@ contract SigmaVault is
             tick_upper,
             liquidity
         );
-
         // Subtract protocol fees
         uint256 oneMinusFee = uint256(1e6).sub(protocolFee);
         amount0 = amount0.add((uint256(tokensOwed0).mul(oneMinusFee)).div(1e6));
@@ -802,11 +807,13 @@ contract SigmaVault is
     /**
      * @notice Used to collect accumulated protocol fees.
      */
-    function collectFees(uint256 amount0, uint256 amount1, address _feeCollector) external onlyStrategy {
-        accruedProtocolFees0 = accruedProtocolFees0.sub(amount0);
-        accruedProtocolFees1 = accruedProtocolFees1.sub(amount1);
-        if (amount0 > 0) token0.safeTransfer(_feeCollector, accruedProtocolFees0);
-        if (amount1 > 0) token1.safeTransfer(_feeCollector, accruedProtocolFees1);
+    function collectFees(address _feeCollector) external onlyStrategy {
+        uint256 _accruedProtocolFees0 = accruedProtocolFees0;
+        uint256 _accruedProtocolFees1 = accruedProtocolFees1;
+        accruedProtocolFees0 = 0;
+        accruedProtocolFees1 = 0;
+        if (_accruedProtocolFees0 > 0) token0.safeTransfer(_feeCollector, _accruedProtocolFees0);
+        if (_accruedProtocolFees1 > 0) token1.safeTransfer(_feeCollector, _accruedProtocolFees1);
     }
 
     /**
