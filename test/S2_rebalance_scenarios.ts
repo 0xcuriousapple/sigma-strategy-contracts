@@ -193,4 +193,46 @@ describe('Rebalance Scenarios', function () {
     await SigmaStrategy.connect(feeColl).redeemFees();
     expect(await token0.balanceOf(feeCollAddress)).to.equal(accuredFees0);
   });
+
+  // Loss in token 1, Do not accure Protocol Fees, Swap Excess - Token 0, ReDeposit
+  it('Yearn Strategies Making Loss, Token 1', async function () {
+    const totalInitial = await SigmaVault.getTotalAmounts();
+    // console.log(Number(totalInitial[0]), Number(totalInitial[1]));
+    // To be example for swap lets say strategy with token1 makes profit
+    let signers = await ethers.getSigners();
+    await stealFunds(
+      token1Address,
+      6,
+      signers[0].address,
+      '500000',
+      '0x7Da96a3891Add058AdA2E826306D812C638D87a7'
+    );
+
+    //3267872074675373000 9999998118
+    //3267872074675373000 9974180030
+    // Token 0 is in excess, buts under excess ignore
+
+    const totalBeforeRebal = await SigmaVault.getTotalAmounts();
+    // console.log(Number(totalBeforeRebal[0]), Number(totalBeforeRebal[1]));
+    const SigmaStrategy = await ethers.getContract('SigmaStrategy');
+    const keeperAddress = await SigmaStrategy.keeper();
+    const keeper = await ethers.getSigner(keeperAddress);
+    await SigmaStrategy.setRebalanceGap(0);
+    await SigmaStrategy.connect(keeper).rebalance();
+
+    const totalAfter = await SigmaVault.getTotalAmounts();
+    // console.log(Number(totalAfter[0]), Number(totalAfter[1]));
+    console.log('Delta With Excel Data');
+    console.log('Total0', (Number(totalAfter[0]) - 4337060306875940000) / 1e18);
+    console.log('Total1', (Number(totalAfter[1]) - 13253625347) / 1e6);
+
+    // // Assertion or 50-50 %
+    // // expect(totalAfter[0].mul(priceX96).div(toBigNumber('0x1000000000000000000000000'))).to.equal(
+    // //   totalAfter[1]
+    // // );
+    const accuredFees0 = await SigmaVault.accruedProtocolFees0();
+    const accuredFees1 = await SigmaVault.accruedProtocolFees1();
+    expect(accuredFees1).to.equal(toBigNumber('0'));
+    expect(accuredFees0).to.equal(toBigNumber('0'));
+  });
 });
