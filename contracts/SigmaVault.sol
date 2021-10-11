@@ -306,7 +306,7 @@ contract SigmaVault is
 
         uint256 totalAssets0 = getBalance0();
         uint256 totalAssets1 = getBalance1();
-        // console.log("Total Assets before swap", totalAssets0, totalAssets1);
+        // git aconsole.log("Total Assets before swap", totalAssets0, totalAssets1);
         _swapExcess(totalAssets0, totalAssets1);
         totalAssets0 = getBalance0();
         totalAssets1 = getBalance1();
@@ -504,72 +504,72 @@ contract SigmaVault is
         require(tickUpper % _tickSpacing == 0, "tickUpper % tickSpacing");
     }
 
-    // /**
-    //  * @notice Withdraws tokens in proportion to the vault's holdings.
-    //  * @param shares Shares burned by sender
-    //  * @param amount0Min Revert if resulting `amount0` is smaller than this
-    //  * @param amount1Min Revert if resulting `amount1` is smaller than this
-    //  * @param to Recipient of tokens
-    //  * @return amount0 Amount of token0 sent to recipient
-    //  * @return amount1 Amount of token1 sent to recipient
-    //  */
-    // function withdraw(
-    //     uint256 shares,
-    //     uint256 amount0Min,
-    //     uint256 amount1Min,
-    //     address to
-    // ) external nonReentrant returns (uint256 amount0, uint256 amount1) {
-    //     require(shares > 0, "shares == 0");
-    //     require(to != address(0) && to != address(this), "invalid recepient");
-    //     uint256 _totalSupply = totalSupply();
-    //     // Burn shares
-    //     _burn(msg.sender, shares);
+    /**
+     * @notice Withdraws tokens in proportion to the vault's holdings.
+     * @param shares Shares burned by sender
+     * @param amount0Min Revert if resulting `amount0` is smaller than this
+     * @param amount1Min Revert if resulting `amount1` is smaller than this
+     * @param to Recipient of tokens
+     * @return amount0 Amount of token0 sent to recipient
+     * @return amount1 Amount of token1 sent to recipient
+     */
+    function withdraw(
+        uint256 shares,
+        uint256 amount0Min,
+        uint256 amount1Min,
+        address to
+    ) external nonReentrant returns (uint256 amount0, uint256 amount1) {
+        require(shares > 0, "shares == 0");
+        require(to != address(0) && to != address(this), "invalid recepient");
+        uint256 _totalSupply = totalSupply();
+        // Burn shares
+        _burn(msg.sender, shares);
 
-    //     // Calculate token amounts proportional to unused balances
-    //     {
-    //     uint256 unusedAmount0 = getBalance0().mul(shares).div(_totalSupply);
-    //     uint256 unusedAmount1 = getBalance1().mul(shares).div(_totalSupply);
-    //     amount0 = amount0.add(unusedAmount0);
-    //     amount1 = amount1.add(unusedAmount1);
-    //     // console.log("Unused Amounts",amount0, amount1);
-    //     }
+        // Calculate token amounts proportional to unused balances
+        {
+        uint256 unusedAmount0 = getBalance0().mul(shares).div(_totalSupply);
+        uint256 unusedAmount1 = getBalance1().mul(shares).div(_totalSupply);
+        amount0 = amount0.add(unusedAmount0);
+        amount1 = amount1.add(unusedAmount1);
+        // console.log("Unused Amounts",amount0, amount1);
+        }
 
-    //     // Withdraw proportion of liquidity from Uniswap pool and from yearn
-    //     {
-    //     (uint128 totalLiquidity, , , , ) = _position(tick_lower, tick_upper);
-    //     uint256 liquidity = (
-    //         (uint256(totalLiquidity).mul(shares)).div(_totalSupply)
-    //     );
+        // Withdraw proportion of liquidity from Uniswap pool and from yearn
+        {
+        (uint128 totalLiquidity, , , , ) = _position(tick_lower, tick_upper);
+        uint256 liquidity = (
+            (uint256(totalLiquidity).mul(shares)).div(_totalSupply)
+        );
 
-    //     uint256 yTotalShares0 = lendVault0.balanceOf(address(this));
-    //     uint256 yTotalShares1 = lendVault1.balanceOf(address(this));
+        uint256 yTotalShares0 = lendVault0.balanceOf(address(this));
+        uint256 yTotalShares1 = lendVault1.balanceOf(address(this));
 
-    //      lv memory _lv;
-    //     _lv.yShares0 =  (yTotalShares0.mul(shares)).div(_totalSupply);
-    //     _lv.yShares1 =     (yTotalShares1.mul(shares)).div(_totalSupply);
-    //     _lv.deposited0 =  (lvTotalDeposited0.mul(shares)).div(_totalSupply);
-    //     _lv.deposited1 =     (lvTotalDeposited1.mul(shares)).div(_totalSupply);
+         lv memory _lv;
+        _lv.yShares0 =  (yTotalShares0.mul(shares)).div(_totalSupply);
+        _lv.yShares1 =     (yTotalShares1.mul(shares)).div(_totalSupply);
+        _lv.deposited0 =  (lvTotalDeposited0.mul(shares)).div(_totalSupply);
+        _lv.deposited1 =     (lvTotalDeposited1.mul(shares)).div(_totalSupply);
 
-    //     // console.log("Balance",getBalance0(), getBalance1());
+        // console.log("Balance",getBalance0(), getBalance1());
 
-    //     (uint256 _amountWithdrawn0, uint256 _amountWithdrawn1) = 
-    //     _executeWithdraw(_toUint128(liquidity), _lv);
+        (uint256 _amountWithdrawn0, uint256 _amountWithdrawn1) = 
+        _executeWithdraw(_toUint128(liquidity), _lv);
 
-    //     // console.log("Withdrawn Amounts",_amountWithdrawn0, _amountWithdrawn1);
-    //     amount0 = amount0.add(_amountWithdrawn0);
-    //     amount1 = amount1.add(_amountWithdrawn1);
-    //     }
+        // console.log("Withdrawn Amounts",_amountWithdrawn0, _amountWithdrawn1);
+        amount0 = amount0.add(_amountWithdrawn0);
+        amount1 = amount1.add(_amountWithdrawn1);
+        }
 
-    //     require(amount0 >= amount0Min, "amount0Min");
-    //     require(amount1 >= amount1Min, "amount1Min");
+        require(amount0 >= amount0Min, "amount0Min");
+        require(amount1 >= amount1Min, "amount1Min");
         
         
-    //     // Push tokens to recipient
-    //     if (amount0 > 0) token0.safeTransfer(to, amount0);
-    //     if (amount1 > 0) token1.safeTransfer(to, amount1);
+        // Push tokens to recipient
+        if (amount0 > 0) token0.safeTransfer(to, amount0);
+        if (amount1 > 0) token1.safeTransfer(to, amount1);
 
-    //     emit Withdraw(msg.sender, to, shares, amount0, amount1);
-    // }
+        emit Withdraw(msg.sender, to, shares, amount0, amount1);
+    }
 
     function _executeWithdraw(
         uint128 liquidity,
