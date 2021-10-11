@@ -66,11 +66,9 @@ const swapBeyondLowerTick = async (poolAddress: string) => {
   const signers = await ethers.getSigners();
   const uniSwapV3pool = new ethers.Contract(poolAddress, uniswapV3poolABI, signers[0]);
   let slot0 = await uniSwapV3pool.slot0();
-  // const currentTick = Number(slot0[1]);
-  // const currentInitilizedLowerTick = Math.floor(currentTick / 60) * 60;
-  // const currentInitilizedUpperTick = Math.floor(currentTick / 60) * 60 + 60;
+  let currentTick = Number(slot0[1]);
 
-  // console.log(currentTick, currentInitilizedLowerTick, currentInitilizedUpperTick);
+  //  console.log('Tick Before swap', currentTick);
 
   const uniswapV3swapRouter = new ethers.Contract(
     '0xE592427A0AEce92De3Edee1F18E0157C05861564',
@@ -100,10 +98,15 @@ const swapBeyondLowerTick = async (poolAddress: string) => {
     fee: fee,
     recipient: signers[0].address,
     deadline: deadline,
-    amountIn: 200000000000000,
+    amountIn: 50000000000000,
     amountOutMinimum: 0,
     sqrtPriceLimitX96: 0,
   });
+
+  slot0 = await uniSwapV3pool.slot0();
+  currentTick = Number(slot0[1]);
+
+  //console.log('Tick after swap', currentTick);
 };
 
 const swapBeyondHigherTick = async (poolAddress: string) => {};
