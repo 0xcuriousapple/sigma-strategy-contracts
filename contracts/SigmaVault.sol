@@ -861,7 +861,8 @@ contract SigmaVault is
     function setSwapExcessIgnore(uint256 _swapExcessIgnore)
         external
         onlyGovernanceOrTeamMultisig
-    {
+    {   
+        require(_swapExcessIgnore < 1e6, "swapExcessIgnore excceding 1e6");
         swapExcessIgnore = _swapExcessIgnore;
     }
     

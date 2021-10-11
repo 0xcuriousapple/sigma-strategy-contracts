@@ -183,5 +183,14 @@ describe('Withdraw Scenarios', function () {
     console.log('Withdrawn0', (Number(withdrawn0) - 3267872074675370000) / 1e18);
     console.log('Withdrawn1', (Number(withdrawn1) - 15106858788) / 1e6);
     console.log('AccuredFees1', (Number(accuredFees1) - 50966604) / 1e6);
+
+    await SigmaVault.emergencyWithdrawUni();
+    await SigmaVault.emergencyWithdrawL0();
+    await SigmaVault.emergencyWithdrawL1();
+
+    expect(await token0.balanceOf(SigmaVault.address)).to.be.closeTo(
+      toBigNumber('3267872074675373142'),
+      10000
+    );
   });
 });

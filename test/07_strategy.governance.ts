@@ -26,6 +26,9 @@ describe('SigmaStrategy', function () {
         '0xbB93e510BbCD0B7beb5A853875f9eC60275CF498'
       )
     ).to.be.revertedWith('caller is not the gov');
+    await expect(SigmaStrategy.connect(signers[0]).setUniSwapShare(200)).to.be.revertedWith(
+      'share exceeds 100'
+    );
 
     // Asserts
     await SigmaStrategy.setKeeper('0xbB93e510BbCD0B7beb5A853875f9eC60275CF498');
@@ -40,5 +43,7 @@ describe('SigmaStrategy', function () {
     expect(await SigmaStrategy.feeCollector()).to.be.equal(
       '0xbB93e510BbCD0B7beb5A853875f9eC60275CF498'
     );
+    await SigmaStrategy.setUniSwapShare(30);
+    expect(await SigmaStrategy.uniswapShare()).to.be.equal(30);
   });
 });

@@ -60,7 +60,9 @@ describe('SigmaVault Governance', function () {
     await expect(SigmaVault.connect(signers[0]).setProtocolFee(1000000)).to.be.revertedWith(
       'protocolFee excceding 1e6'
     );
-
+    await expect(SigmaVault.connect(signers[0]).setSwapExcessIgnore(1000000)).to.be.revertedWith(
+      'swapExcessIgnore excceding 1e6'
+    );
     // Asserts
     await SigmaVault.setStrategy('0xbB93e510BbCD0B7beb5A853875f9eC60275CF498');
     expect(await SigmaVault.strategy()).to.be.equal('0xbB93e510BbCD0B7beb5A853875f9eC60275CF498');
@@ -68,7 +70,8 @@ describe('SigmaVault Governance', function () {
     expect(await SigmaVault.protocolFee()).to.be.equal(toBigNumber('100'));
     await SigmaVault.setMaxTotalSupply(toBigNumber('1000000'));
     expect(await SigmaVault.maxTotalSupply()).to.be.equal(toBigNumber('1000000'));
-
+    await SigmaVault.setSwapExcessIgnore(toBigNumber('6000'));
+    expect(await SigmaVault.swapExcessIgnore()).to.be.equal(toBigNumber('6000'));
     // Trasfer governance
     await expect(
       SigmaVault.connect(signers[1]).transferTeamMultisig(signers[1].address)
@@ -110,5 +113,6 @@ describe('SigmaVault Governance', function () {
     const keeperAddress = await SigmaStrategy.keeper();
     const keeper = await ethers.getSigner(keeperAddress);
     await expect(SigmaStrategy.connect(keeper).rebalance()).to.be.revertedWith('Pausable: paused');
+    await SigmaVault.unpause();
   });
 });
