@@ -161,7 +161,7 @@ describe('Withdraw Scenarios', function () {
     );
 
     const totalAfter = await SigmaVault.getTotalAmounts();
-    // console.log(Number(totalAfter[0]), Number(totalAfter[1]));
+    //console.log(Number(totalAfter[0]), Number(totalAfter[1]));
     const token0Before = await token0.balanceOf(signers[0].address);
     const token1Before = await token1.balanceOf(signers[0].address);
     SigmaVault.connect(signers[1]).withdraw(sharesMinted, 0, 0, signers[0].address);
@@ -169,21 +169,19 @@ describe('Withdraw Scenarios', function () {
     const token1After = await token1.balanceOf(signers[0].address);
     const withdrawn0 = token0After.sub(token0Before);
     const withdrawn1 = token1After.sub(token1Before);
-    console.log(Number(withdrawn0), Number(withdrawn1));
+    //console.log(Number(withdrawn0), Number(withdrawn1));
 
     const accuredFees0 = await SigmaVault.accruedProtocolFees0();
     const accuredFees1 = await SigmaVault.accruedProtocolFees1();
 
     // console.log(Number(accuredFees1));
     // console.log(Number(accuredFees0));
-    expect(withdrawn0).to.be.closeTo(toBigNumber('3267872074675370000'), 10000);
-    expect(withdrawn1).to.be.closeTo(toBigNumber('15106858788'), 10000000);
     expect(accuredFees0).to.be.equal(toBigNumber('0'));
-    expect(accuredFees1).to.be.closeTo(toBigNumber('51119726'), 616410);
+    expect(accuredFees1).to.be.closeTo(toBigNumber('50966604'), 616410);
 
     console.log('Delta With Excel Data');
     console.log('Withdrawn0', (Number(withdrawn0) - 3267872074675370000) / 1e18);
     console.log('Withdrawn1', (Number(withdrawn1) - 15106858788) / 1e6);
-    console.log('AccuredFees1', (Number(accuredFees1) - 51119726) / 1e6);
+    console.log('AccuredFees1', (Number(accuredFees1) - 50966604) / 1e6);
   });
 });

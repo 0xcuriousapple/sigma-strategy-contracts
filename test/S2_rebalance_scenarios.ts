@@ -100,7 +100,7 @@ describe('Rebalance Scenarios', function () {
 
     // Token 1 is in excess
     const totalBeforeRebal = await SigmaVault.getTotalAmounts();
-    //console.log('Total Before Rebalance', Number(totalBeforeRebal[0]), Number(totalBeforeRebal[1]));
+    // console.log('Total Before Rebalance', Number(totalBeforeRebal[0]), Number(totalBeforeRebal[1]));
     const signers = await ethers.getSigners();
     const uniSwapV3pool = new ethers.Contract(POOL, uniswapV3poolABI, signers[0]);
     const slot0 = await uniSwapV3pool.slot0();
@@ -120,7 +120,7 @@ describe('Rebalance Scenarios', function () {
     await SigmaStrategy.connect(keeper).rebalance();
 
     const totalAfter = await SigmaVault.getTotalAmounts();
-
+    // console.log('Total After Rebalance', Number(totalAfter[0]), Number(totalAfter[1]));
     // My guess is diff Arise from the fact of different withdrawable and diff amount withdrawn in case of yearn
     // Withdrawable 3267872074675372844 15112232914
     // Withdrawn 3267872074675372845 15112241467
@@ -134,8 +134,8 @@ describe('Rebalance Scenarios', function () {
     //   Number(totalBeforeRebal[1].sub(AmountToSwap))
     // );
     console.log('Delta With Excel Data');
-    console.log('Total0', (Number(totalAfter[0]) - 4102718608261700000) / 1e18);
-    console.log('Total1', (Number(totalAfter[1]) - 12557309431) / 1e6);
+    console.log('Total0', (Number(totalAfter[0]) - 4100217559657110000) / 1e18);
+    console.log('Total1', (Number(totalAfter[1]) - 12549655015) / 1e6);
 
     // Assertion for 50-50 %
     // expect(totalAfter[0].mul(priceX96).div(toBigNumber('0x1000000000000000000000000'))).to.equal(
@@ -144,7 +144,7 @@ describe('Rebalance Scenarios', function () {
     const accuredFees0 = await SigmaVault.accruedProtocolFees0();
     const accuredFees1 = await SigmaVault.accruedProtocolFees1();
     expect(accuredFees0).to.equal(toBigNumber('0'));
-    expect(accuredFees1).to.equal(toBigNumber('51638802'));
+    expect(accuredFees1).to.equal(toBigNumber('51484134'));
 
     const feeCollAddress = await SigmaStrategy.feeCollector();
     const feeColl = await ethers.getSigner(feeCollAddress);
@@ -155,7 +155,7 @@ describe('Rebalance Scenarios', function () {
   // Profit, Accure Protocol Fees, Swap Excess - Token 0, ReDeposit
   it('Yearn Strategies Making Profit, Token 0', async function () {
     const totalInitial = await SigmaVault.getTotalAmounts();
-    console.log(Number(totalInitial[0]), Number(totalInitial[1]));
+    //console.log(Number(totalInitial[0]), Number(totalInitial[1]));
     // To be example for swap lets say strategy with token1 makes profit
     await stealFunds(
       token0Address,
@@ -169,6 +169,7 @@ describe('Rebalance Scenarios', function () {
 
     // Token 0 is in excess
     const totalBeforeRebal = await SigmaVault.getTotalAmounts();
+    //console.log('Total Before Rebalance', Number(totalBeforeRebal[0]), Number(totalBeforeRebal[1]));
     const SigmaStrategy = await ethers.getContract('SigmaStrategy');
     const keeperAddress = await SigmaStrategy.keeper();
     const keeper = await ethers.getSigner(keeperAddress);
@@ -176,9 +177,10 @@ describe('Rebalance Scenarios', function () {
     await SigmaStrategy.connect(keeper).rebalance();
 
     const totalAfter = await SigmaVault.getTotalAmounts();
+    //console.log('Total After Rebalance', Number(totalAfter[0]), Number(totalAfter[1]));
     console.log('Delta With Excel Data');
-    console.log('Total0', (Number(totalAfter[0]) - 4337890472518260000) / 1e18);
-    console.log('Total1', (Number(totalAfter[1]) - 13275054110) / 1e6);
+    console.log('Total0', (Number(totalAfter[0]) - 4336644806894810000) / 1e18);
+    console.log('Total1', (Number(totalAfter[1]) - 13271239641) / 1e6);
 
     // Assertion or 50-50 %
     // expect(totalAfter[0].mul(priceX96).div(toBigNumber('0x1000000000000000000000000'))).to.equal(
@@ -187,7 +189,7 @@ describe('Rebalance Scenarios', function () {
     const accuredFees0 = await SigmaVault.accruedProtocolFees0();
     const accuredFees1 = await SigmaVault.accruedProtocolFees1();
     expect(accuredFees1).to.equal(toBigNumber('0'));
-    expect(accuredFees0).to.equal(toBigNumber('4769945893937575'));
+    expect(accuredFees0).to.equal(toBigNumber('4767036740555480'));
 
     const feeCollAddress = await SigmaStrategy.feeCollector();
     const feeColl = await ethers.getSigner(feeCollAddress);
@@ -214,6 +216,7 @@ describe('Rebalance Scenarios', function () {
     // Token 0 is in excess, buts under excess ignore
 
     const totalBeforeRebal = await SigmaVault.getTotalAmounts();
+    //console.log('Total Before Rebalance', Number(totalBeforeRebal[0]), Number(totalBeforeRebal[1]));
     // console.log(Number(totalBeforeRebal[0]), Number(totalBeforeRebal[1]));
     const SigmaStrategy = await ethers.getContract('SigmaStrategy');
     const keeperAddress = await SigmaStrategy.keeper();
@@ -225,7 +228,7 @@ describe('Rebalance Scenarios', function () {
     // console.log(Number(totalAfter[0]), Number(totalAfter[1]));
     console.log('Delta With Excel Data');
     console.log('Total0', (Number(totalAfter[0]) - 4337060306875940000) / 1e18);
-    console.log('Total1', (Number(totalAfter[1]) - 13253625347) / 1e6);
+    console.log('Total1', (Number(totalAfter[1]) - 13245617464) / 1e6);
 
     // // Assertion or 50-50 %
     // // expect(totalAfter[0].mul(priceX96).div(toBigNumber('0x1000000000000000000000000'))).to.equal(

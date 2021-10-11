@@ -156,8 +156,8 @@ describe('SigmaVault Deposit Scenarios', function () {
       '0x47ac0fb4f2d84898e4d9e7b4dab3c24507a6d503'
     );
     const totalFinal = await SigmaVault.getTotalAmounts();
-    expect(toneDownPrecision(totalFinal[0])).to.equal(2636967361617130000);
-    expect(toneDownPrecision(totalFinal[1])).to.equal(12180646018);
+    expect(toneDownPrecision(totalFinal[0])).to.equal(2636976467644790000);
+    expect(toneDownPrecision(totalFinal[1])).to.equal(12168303506);
 
     let signers = await ethers.getSigners();
     await stealFunds(
@@ -209,9 +209,9 @@ describe('SigmaVault Deposit Scenarios', function () {
     const totalFinal2 = await SigmaVault.getTotalAmounts();
 
     console.log('Delta from Excel Data'); // Due to double precision loss, it was not exact match
-    console.log('Shares Minted', (Number(sharesCalculated) - 1729915496165290000) / 1e18);
-    console.log('Token 0 Deposited', (Number(amount0) - 1731906408114060000) / 1e18);
-    console.log('Total0 Final', (Number(totalFinal2[0]) - 4368873769731190000) / 1e18);
-    console.log('Total1 Final', (Number(totalFinal2[1]) - 20180646017) / 1e6);
+    console.log('Shares Minted', (Number(sharesCalculated) - 1731670178158360000) / 1e18);
+    console.log('Token 0 Deposited', (Number(amount0) - 1733669096169090000) / 1e18);
+    console.log('Total0 Final', (Number(totalFinal2[0]) - 4370645563813880000) / 1e18);
+    console.log('Total1 Final', (Number(totalFinal2[1]) - 20168303505) / 1e6);
   });
 });

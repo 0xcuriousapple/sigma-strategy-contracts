@@ -15,8 +15,8 @@ describe('SigmaVault', function () {
     const signers = await ethers.getSigners();
     const token0 = new ethers.Contract(token0Address, erc20ABI, signers[0]);
     const token1 = new ethers.Contract(token1Address, erc20ABI, signers[0]);
-    console.log(await token0.symbol());
-    console.log(await token1.symbol());
+    // console.log(await token0.symbol());
+    // console.log(await token1.symbol());
 
     await stealFunds(
       token0Address,
