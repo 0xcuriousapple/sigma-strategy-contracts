@@ -100,6 +100,7 @@ describe('Rebalance Scenarios', function () {
 
     // Token 1 is in excess
     const totalBeforeRebal = await SigmaVault.getTotalAmounts();
+    //console.log('Total Before Rebalance', Number(totalBeforeRebal[0]), Number(totalBeforeRebal[1]));
     const signers = await ethers.getSigners();
     const uniSwapV3pool = new ethers.Contract(POOL, uniswapV3poolABI, signers[0]);
     const slot0 = await uniSwapV3pool.slot0();
@@ -123,7 +124,7 @@ describe('Rebalance Scenarios', function () {
     // My guess is diff Arise from the fact of different withdrawable and diff amount withdrawn in case of yearn
     // Withdrawable 3267872074675372844 15112232914
     // Withdrawn 3267872074675372845 15112241467
-    // console.log('Total After Rebalance', Number(totalAfter[0]), Number(totalAfter[1]));
+    //console.log('Total After Rebalance', Number(totalAfter[0]), Number(totalAfter[1]));
     // console.log(
     //   Number(
     //     totalBeforeRebal[0].add(
@@ -134,7 +135,7 @@ describe('Rebalance Scenarios', function () {
     // );
     console.log('Delta With Excel Data');
     console.log('Total0', (Number(totalAfter[0]) - 4102718608261700000) / 1e18);
-    console.log('Total1', (Number(totalAfter[1]) - 12557313709) / 1e6);
+    console.log('Total1', (Number(totalAfter[1]) - 12557309431) / 1e6);
 
     // Assertion for 50-50 %
     // expect(totalAfter[0].mul(priceX96).div(toBigNumber('0x1000000000000000000000000'))).to.equal(
