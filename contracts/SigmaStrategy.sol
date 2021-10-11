@@ -9,13 +9,14 @@ import "./interfaces/ISigmaVault.sol";
 
 /**
  * @title   Sigma Strategy
- * @notice  TBA
- * TBA
- * TBA
+ * @notice  A wrapper around vault, to initiate rebalance and to redeem fees.
+ * Going to be used by Keeper and feeCollector, user dont interact with this
  */
+
 contract SigmaStrategy {
-    ISigmaVault public vault;
-    IUniswapV3Pool public pool;
+    
+    ISigmaVault public vault; 
+    IUniswapV3Pool public pool; 
     int24 public tickSpacing;
 
     uint8 public uniswapShare;
@@ -23,16 +24,19 @@ contract SigmaStrategy {
     uint32 public twapDuration;
     address public keeper;
     address public feeCollector;
-
-    uint256 public lastRebalance;
+    
     uint32 public rebalanceGap;
     int24 public lastTick;
+    uint256 public lastRebalance;
 
     /**
      * @param _vault Underlying Sigma Vault
-     * @param _maxTwapDeviation Max deviation from TWAP during rebalance
+     * @param _uniswapShare percentage of totalAssets to be used for uniSwap, @notice /100
+     * @param _maxTwapDeviation Max deviation from TWAP during rebalance, @notice in ticks
      * @param _twapDuration TWAP duration in seconds for rebalance check
+     * @param _rebalanceGap gap in seconds for subq rebalances 
      * @param _keeper Account that can call `rebalance()`
+     * @param _feeCollector Account that can call `redeemFees()`
      */
     constructor(
         address _vault,
@@ -60,8 +64,9 @@ contract SigmaStrategy {
     }
 
     /**
-     * @notice Calculates new ranges for orders and calls `vault.rebalance()`
-     * so that vault can update its positions. Can only be called by keeper.
+     * @notice Checks status of pool, if all okay, calls `vault.rebalance()`
+     * can only be called after rebalanceGap
+     * can only be called by keeper.
      */
     function rebalance() external onlyKeeper {
 
@@ -76,24 +81,27 @@ contract SigmaStrategy {
         int24 deviation = tick > twap ? tick - twap : twap - tick;
         require(deviation <= maxTwapDeviation, "maxTwapDeviation");
 
-        // TODO : If possible check if its good idea to withdraw from yearn now
         lastRebalance = block.timestamp;
         lastTick = tick;
         
         vault.rebalance(uniswapShare);
     }
 
+    /**
+     * @notice Allows feeCollector to redeemFees via calling 'vault.redeemFees'
+     * can only be called by feeCollector.
+     */
     function redeemFees() external onlyFeeCollector 
     {
         vault.collectFees(feeCollector);
     }
 
-    /// @dev Fetches current price in ticks from Uniswap pool.
+    /// @dev Fetches current tick from Uniswap pool.
     function _getTick() internal view returns (int24 tick) {
         (, tick, , , , , ) = pool.slot0();
     }
 
-    /// @dev Fetches time-weighted average price in ticks from Uniswap pool.
+    /// @dev Fetches time-weighted average tick from Uniswap pool.
     function _getTwap() internal view returns (int24) {
         uint32 _twapDuration = twapDuration;
         uint32[] memory secondsAgo = new uint32[](2);
@@ -103,6 +111,10 @@ contract SigmaStrategy {
         (int56[] memory tickCumulatives, ) = pool.observe(secondsAgo);
         return int24((tickCumulatives[1] - tickCumulatives[0]) / _twapDuration); 
     }
+
+    /// @notice : Setters
+    /// can only be called by governance
+    /// @dev Uses same governance as underlying vault.
 
     function setKeeper(address _keeper) external onlyGovernance {
         keeper = _keeper;
@@ -137,13 +149,11 @@ contract SigmaStrategy {
         feeCollector = _feeCollector;
     }
 
-    /// @dev Uses same governance as underlying vault.
     modifier onlyGovernance() {
         require(msg.sender == vault.governance(), "caller is not the gov");
         _;
     }
 
-    /// @dev Uses same governance as underlying vault.
     modifier onlyKeeper() {
         require(msg.sender == keeper, "Not Keeper");
         _;
