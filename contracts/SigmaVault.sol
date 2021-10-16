@@ -99,6 +99,8 @@ contract SigmaVault is
     uint256 public maxTotalSupply;
     address public strategy;
 
+    uint256 public lv0Decimals; // Have not made 8 intentially as Yearn stores it in 256
+    uint256 public lv1Decimals;
     int24 public tick_lower;
     int24 public tick_upper;
     uint256 public accruedProtocolFees0;
@@ -132,6 +134,8 @@ contract SigmaVault is
 
         lendVault0 = VaultAPI(_lendVault0);
         lendVault1 = VaultAPI(_lendVault1);
+        lv0Decimals = lendVault0.decimals();
+        lv1Decimals = lendVault1.decimals();
 
         protocolFee = _protocolFee;
         swapExcessIgnore = _swapExcessIgnore;
@@ -493,7 +497,7 @@ contract SigmaVault is
             uint256 toWithdraw = amount.sub(balance).add(10);
             //console.log('Y1 Amount Req, bal', toWithdraw, balance);
             virtualAmount0 = virtualAmount0.sub(toWithdraw);
-            uint256 sharesToWithdraw = FullMath.mulDiv(toWithdraw,10 ** lendVault0.decimals(), lendVault0.pricePerShare());
+            uint256 sharesToWithdraw = FullMath.mulDiv(toWithdraw,10 ** lv0Decimals, lendVault0.pricePerShare());
             lendVault0.withdraw(sharesToWithdraw); 
             //console.log('Y1 Amount w, bal', getBalance0().sub(balance), getBalance0());
         }
@@ -506,7 +510,7 @@ contract SigmaVault is
             uint256 toWithdraw = amount.sub(balance).add(10);
             //console.log('Y1 Amount Req, bal', toWithdraw, balance);
             virtualAmount1 = virtualAmount1.sub(toWithdraw);
-            uint256 sharesToWithdraw = FullMath.mulDiv(toWithdraw,10 ** lendVault1.decimals(), lendVault1.pricePerShare());
+            uint256 sharesToWithdraw = FullMath.mulDiv(toWithdraw,10 ** lv1Decimals, lendVault1.pricePerShare());
             lendVault1.withdraw(sharesToWithdraw); 
             //console.log('Y1 Amount w, bal', getBalance1().sub(balance), getBalance1());
         }
@@ -773,8 +777,8 @@ contract SigmaVault is
      */
     function getLvAmounts() public view returns(uint256 amount0, uint256 amount1, uint256 feeProtocol0, uint256 feeProtocol1, uint256 total0, uint256 total1)
     {
-        amount0 = FullMath.mulDiv(lendVault0.balanceOf(address(this)),lendVault0.pricePerShare(),10 ** lendVault0.decimals());
-        amount1 = FullMath.mulDiv(lendVault1.balanceOf(address(this)),lendVault1.pricePerShare(),10 ** lendVault1.decimals());
+        amount0 = FullMath.mulDiv(lendVault0.balanceOf(address(this)),lendVault0.pricePerShare(),10 ** lv0Decimals);
+        amount1 = FullMath.mulDiv(lendVault1.balanceOf(address(this)),lendVault1.pricePerShare(),10 ** lv1Decimals);
 
         total0 = amount0;
         total1 = amount1;
