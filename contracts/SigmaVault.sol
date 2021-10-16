@@ -331,9 +331,8 @@ contract SigmaVault is
         (virtualAmount0, virtualAmount1) = _swapExcess(totalAssets0, totalAssets1, virtualAmount0, virtualAmount1);
 
           
-        // Step 3 : Mint Liq and Yearn Deposit
+        // Step 3 : Mint Liq
 
-        // Uniswap
         totalAssets0 = getBalance0().add(virtualAmount0);
         totalAssets1 = getBalance1().add(virtualAmount1);  
 
@@ -401,65 +400,27 @@ contract SigmaVault is
         lvTotalDeposited0 = virtualAmount0;
         lvTotalDeposited1 = virtualAmount1;
 
-        // // test this 
-        // // this should match with 
+        // Step 4 : If anything is remaining deposit that on yearn
         {
-        (uint256 virtualAmount0new, uint256 virtualAmount1new, uint256 virtualfeeProtocol0, uint256 virtualfeeProtocol1,,) = getLvAmounts();  
-        console.log('Test lv amounts', lvTotalDeposited0, lvTotalDeposited1);
-        console.log('Test lv amounts', virtualAmount0new, virtualAmount1new, virtualfeeProtocol1);
+            uint256 totalAssets0Remain = getBalance0();
+            if(totalAssets0Remain > 0)
+            {   
+                lvTotalDeposited0 = lvTotalDeposited0.add(totalAssets0Remain);
+                token0.safeApprove(address(lendVault0), totalAssets0Remain);
+                lendVault0.deposit(totalAssets0Remain);
+            }
+
+            uint256 totalAssets1Remain = getBalance1();
+            if(totalAssets1Remain > 0)
+            {   
+                lvTotalDeposited1 = lvTotalDeposited1.add(totalAssets1Remain);
+                token1.safeApprove(address(lendVault1), totalAssets1Remain);
+                lendVault1.deposit(totalAssets1Remain);
+            }
         }
-        // If anything is remaining deposit that on yearn
-        _depositRemainingLV();
         
     }   
 
-    // function _yearnWithdrawlUniswap(uint128 liq, uint256 virtualAmount0, uint256 virtualAmount1) internal returns (uint256 fvirtualAmount0, uint256 fvirtualAmount1)
-    // {       
-    //         fvirtualAmount0 = virtualAmount0;
-    //         fvirtualAmount1 = virtualAmount1;
-    //         (uint256 adjustedAmount0, uint256 adjustedAmount1) = _amountsForLiquidity(
-    //             tick_lower,
-    //             tick_upper,
-    //             liq
-    //         );
-    //         adjustedAmount0 = adjustedAmount0.add(10);
-    //         adjustedAmount1 = adjustedAmount1.add(10);
-            
-    //         if(adjustedAmount0 > getBalance0())
-    //         {   
-    //             uint256 virtualAmountWithdrawn = adjustedAmount0.sub(getBalance0());
-    //             fvirtualAmount0 = virtualAmount0.sub(virtualAmountWithdrawn);
-    //             yearnWithdraw0(virtualAmountWithdrawn);
-    //         }
-    //         if(adjustedAmount1 > getBalance1()) {
-    //             uint256 virtualAmountWithdrawn = adjustedAmount1.sub(getBalance1());
-    //             fvirtualAmount1 = virtualAmount1.sub(virtualAmountWithdrawn);
-    //             yearnWithdraw1(virtualAmountWithdrawn);
-    //         }
-
-    // }
-    function _depositRemainingLV() internal {
-
-        uint256 totalAssets0Remain = getBalance0();
-        if(totalAssets0Remain > 0)
-        {   
-            //console.log('totalAssets0Remain', totalAssets0Remain);
-            lvTotalDeposited0 = lvTotalDeposited0.add(totalAssets0Remain);
-            //console.log('lvDeposited0', lvTotalDeposited0);
-            token0.safeApprove(address(lendVault0), totalAssets0Remain);
-            lendVault0.deposit(totalAssets0Remain);
-        }
-        //console.log(token1.balanceOf(address(this)), accruedProtocolFees1);
-        uint256 totalAssets1Remain = getBalance1();
-        if(totalAssets1Remain > 0)
-        {   
-            //console.log('totalAssets1Remain', totalAssets1Remain);
-            lvTotalDeposited1 = lvTotalDeposited1.add(totalAssets1Remain);
-            //console.log('lvDeposited1', lvTotalDeposited1);
-            token1.safeApprove(address(lendVault1), totalAssets1Remain);
-            lendVault1.deposit(totalAssets1Remain);
-        }
-    }
     function _swapExcess(uint256 totalAssets0, uint256 totalAssets1, uint256 virtualAmount0, uint256 virtualAmount1) internal returns(uint256, uint256) {
         // Swap Excess
         (uint160 sqrtPriceCurrent, , , , , , ) = pool.slot0();
