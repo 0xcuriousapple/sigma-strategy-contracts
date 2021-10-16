@@ -316,13 +316,10 @@ contract SigmaVault is
                 tick_upper
             );
             (,, uint256 uniGain0, uint256 uniGain1) = _uniBurnAndCollect(totalLiquidity);
-            //console.log('Uni gain', uniGain0, uniGain1);
             _accureFees(uniGain0, uniGain1);
 
             // Lending Vaults
             (,,uint256 virtualFeeProtocol0, uint256 virtualFeeProtocol1, uint256 _totalVirtualAmount0, uint256 _totalVirtualAmount1) = getLvAmounts();  
-           
-            //console.log('Virtual Fees', virtualFeeProtocol0, virtualFeeProtocol1);
            
             virtualAmount0 = _totalVirtualAmount0;
             virtualAmount1 = _totalVirtualAmount1;
@@ -336,9 +333,6 @@ contract SigmaVault is
 
             totalAssets0 = getBalance0().add(virtualAmount0);
             totalAssets1 = getBalance1().add(virtualAmount1); 
-
-            //console.log('Virtual Amounts', virtualAmount0, virtualAmount1);
-            //console.log('Total Asssets Value', totalAssets0, totalAssets1);
         }
 
         // Step 2 : Swap Excess
@@ -350,8 +344,6 @@ contract SigmaVault is
         totalAssets0 = getBalance0().add(virtualAmount0);
         totalAssets1 = getBalance1().add(virtualAmount1);  
 
-        //console.log('totalAssetsAfter swap and balances', totalAssets0, totalAssets1);
-        //console.log('totalAssetsAfter swap and balances', getBalance0(), getBalance1());
         (uint160 sqrtPriceCurrent, int24 tick , , , , , ) = pool.slot0();
 
         uint160 infinity = uint160(uint256(1 << 160) - 1);
@@ -466,7 +458,6 @@ contract SigmaVault is
         if(totalExcess0>excess0Ignore)
         {
             uint256 swapAmount = FullMath.mulDiv(totalExcess0, 1e6, 2*(1e6-fee));
-            //console.log('swapAmount01', swapAmount);
             virtualAmount0 = _WithdrawIfNecessLV0(swapAmount, virtualAmount0);
             pool.swap(
                 address(this),
@@ -489,7 +480,6 @@ contract SigmaVault is
         
         if(totalExcess1> excess1Ignore){
             uint256 swapAmount = FullMath.mulDiv(totalExcess1, 1e6, 2*(1e6-fee));
-            //console.log('swapAmount10', swapAmount);
             virtualAmount1 = _WithdrawIfNecessLV1(swapAmount, virtualAmount1);
             pool.swap(
                 address(this),
@@ -507,11 +497,9 @@ contract SigmaVault is
         uint256 balance = getBalance0();
         if(amount > balance){
             uint256 toWithdraw = amount.sub(balance).add(buffer);
-            //console.log('Y1 Amount Req, bal', toWithdraw, balance);
             virtualAmount0 = virtualAmount0.sub(toWithdraw);
             uint256 sharesToWithdraw = FullMath.mulDiv(toWithdraw,10 ** lv0Decimals, lendVault0.pricePerShare());
             lendVault0.withdraw(sharesToWithdraw); 
-            //console.log('Y1 Amount w, bal', getBalance0().sub(balance), getBalance0());
         }
         return virtualAmount0;
     }
@@ -520,11 +508,9 @@ contract SigmaVault is
         uint256 balance = getBalance1();
         if(amount > balance){
             uint256 toWithdraw = amount.sub(balance).add(buffer);
-            //console.log('Y1 Amount Req, bal', toWithdraw, balance);
             virtualAmount1 = virtualAmount1.sub(toWithdraw);
             uint256 sharesToWithdraw = FullMath.mulDiv(toWithdraw,10 ** lv1Decimals, lendVault1.pricePerShare());
             lendVault1.withdraw(sharesToWithdraw); 
-            //console.log('Y1 Amount w, bal', getBalance1().sub(balance), getBalance1());
         }
         return virtualAmount1;
     }
@@ -842,7 +828,6 @@ contract SigmaVault is
         require(msg.sender == address(pool));
         if (amount0 > 0) token0.safeTransfer(msg.sender, amount0);
         if (amount1 > 0) token1.safeTransfer(msg.sender, amount1);
-        //console.log('UniswapMintCallback', amount0, amount1);
     }
 
     /// @dev Callback for Uniswap V3 pool.
