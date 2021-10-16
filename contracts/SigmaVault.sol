@@ -52,7 +52,8 @@ contract SigmaVault is
         address indexed to,
         uint256 shares,
         uint256 amount0,
-        uint256 amount1
+        uint256 amount1,
+        uint256 totalSupply
     );
 
     event Withdraw(
@@ -60,21 +61,19 @@ contract SigmaVault is
         address indexed to,
         uint256 shares,
         uint256 amount0,
-        uint256 amount1
-    );
-
-    event CollectGain(
-        uint256 gainVault0,
-        uint256 gainVault1,
-        uint256 feesToProtocol0,
-        uint256 feesToProtocol1
-    );
-
-    event Snapshot(
-        int24 tick,
-        uint256 totalAmount0,
-        uint256 totalAmount1,
+        uint256 amount1,
         uint256 totalSupply
+    );
+
+    event Rebalance(
+        int24 tick_lower,
+        int24 tick_upper,
+        uint256 uniswapDeposit0,
+        uint256 uniswapDeposit1,
+        uint256 lvDeposit0,
+        uint256 lvDeposit1,
+        uint256 accruedProtocolFees0,
+        uint256 accruedProtocolFees1
     );
 
     IUniswapV3Pool public immutable pool;
@@ -202,7 +201,7 @@ contract SigmaVault is
      
         // Mint shares to recipient
         _mint(to, shares);
-        emit Deposit(msg.sender, to, shares, amount0, amount1);
+        emit Deposit(msg.sender, to, shares, amount0, amount1, totalSupply());
     }
 
     /// @dev Do zero-burns to poke a position on Uniswap so earned fees are
@@ -420,7 +419,7 @@ contract SigmaVault is
                 lendVault1.deposit(totalAssets1Remain);
             }
         }
-        
+        emit Rebalance(tick_lower, tick_upper, amount0Req, amount1Req, lvTotalDeposited0, lvTotalDeposited1, accruedProtocolFees0, accruedProtocolFees1);
     }   
 
     function _swapExcess(uint256 totalAssets0, uint256 totalAssets1, uint256 virtualAmount0, uint256 virtualAmount1) internal returns(uint256, uint256) {
@@ -632,7 +631,7 @@ contract SigmaVault is
         if (amount0 > 0) token0.safeTransfer(to, amount0);
         if (amount1 > 0) token1.safeTransfer(to, amount1);
 
-        emit Withdraw(msg.sender, to, shares, amount0, amount1);
+        emit Withdraw(msg.sender, to, shares, amount0, amount1, totalSupply());
     }
 
     function _executeWithdraw(
