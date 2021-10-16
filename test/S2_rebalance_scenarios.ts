@@ -144,7 +144,7 @@ describe('Rebalance Scenarios', function () {
     const accuredFees0 = await SigmaVault.accruedProtocolFees0();
     const accuredFees1 = await SigmaVault.accruedProtocolFees1();
     expect(accuredFees0).to.equal(toBigNumber('0'));
-    expect(accuredFees1).to.equal(toBigNumber('51484134'));
+    expect(accuredFees1).to.equal(toBigNumber('51484128'));
 
     const feeCollAddress = await SigmaStrategy.feeCollector();
     const feeColl = await ethers.getSigner(feeCollAddress);
@@ -189,7 +189,7 @@ describe('Rebalance Scenarios', function () {
     const accuredFees0 = await SigmaVault.accruedProtocolFees0();
     const accuredFees1 = await SigmaVault.accruedProtocolFees1();
     expect(accuredFees1).to.equal(toBigNumber('0'));
-    expect(accuredFees0).to.equal(toBigNumber('4767036740555480'));
+    expect(accuredFees0).to.equal(toBigNumber('4767036623394020'));
 
     const feeCollAddress = await SigmaStrategy.feeCollector();
     const feeColl = await ethers.getSigner(feeCollAddress);

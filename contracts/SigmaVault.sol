@@ -27,6 +27,8 @@ import "./interfaces/YearnVaultAPI.sol";
 
 import "./utils/Governable.sol";
 
+//import "hardhat/console.sol";
+
 // Code borrowed and modified from https://github.com/charmfinance/alpha-vaults-contracts/blob/main/contracts/AlphaVault.sol
 
 /**
@@ -295,25 +297,41 @@ contract SigmaVault is
             );
             (uint256 uni0Withdrawn, uint256 uni1Withdrawn, uint256 uniGain0, uint256 uniGain1) = _uniBurnAndCollect(totalLiquidity);
             _accureFees(uniGain0, uniGain1);
-
-            (uint256 _virtualAmount0, uint256 _virtualAmount1, uint256 virtualFeeProtocol0, uint256 virtualFeeProtocol1) = getLvAmounts();  
+            // console.log('Uni', uni0Withdrawn, uni1Withdrawn);
+            // console.log('Uni gain', uniGain0, uniGain1);
+            (,,uint256 virtualFeeProtocol0, uint256 virtualFeeProtocol1,uint256 _totalVirtualAmount0, uint256 _totalVirtualAmount1) = getLvAmounts();  
             
-            virtualAmount0 = _virtualAmount0;
-            virtualAmount1 = _virtualAmount1;
-            if(virtualFeeProtocol0 > getBalance0()) yearnWithdraw0(virtualFeeProtocol0.sub(getBalance0()));
-            if(virtualFeeProtocol1 > getBalance1()) yearnWithdraw1(virtualFeeProtocol1.sub(getBalance1()));
+            virtualAmount0 = _totalVirtualAmount0;
+            virtualAmount1 = _totalVirtualAmount1;
+
+           // console.log('Virtual Fees', virtualFeeProtocol0, virtualFeeProtocol1);
+            if(virtualFeeProtocol0 > getBalance0()){
+                uint256 toWithdraw = virtualFeeProtocol0.sub(getBalance0());
+                virtualAmount0 = virtualAmount0.sub(toWithdraw);
+                yearnWithdraw0(toWithdraw.add(10));
+            }
+            if(virtualFeeProtocol1 > getBalance1())
+            {
+                uint256 toWithdraw = virtualFeeProtocol1.sub(getBalance1());
+                virtualAmount1 = virtualAmount1.sub(toWithdraw);
+                yearnWithdraw1(toWithdraw.add(10));
+            }
 
             accruedProtocolFees0 = accruedProtocolFees0.add(virtualFeeProtocol0);
             accruedProtocolFees1 = accruedProtocolFees1.add(virtualFeeProtocol1);
             
             totalAssets0 = getBalance0().add(virtualAmount0);
             totalAssets1 = getBalance1().add(virtualAmount1);  
+
+            //console.log('Virtual Amounts', virtualAmount0, virtualAmount1);
+           // console.log('Total Asssets Value', totalAssets0, totalAssets1);
         }
 
         // Step 2 : Swap Excess
         {
             (bool zeroToOne, uint256 virtualAmountWithdrawn) = _swapExcess(totalAssets0, totalAssets1);
-    
+
+            //console.log('Swap Excess', zeroToOne, virtualAmountWithdrawn);
             if(zeroToOne) {
                 if(virtualAmountWithdrawn > 0) virtualAmount0 = virtualAmount0.sub(virtualAmountWithdrawn);
             }
@@ -327,6 +345,8 @@ contract SigmaVault is
         totalAssets0 = getBalance0().add(virtualAmount0);
         totalAssets1 = getBalance1().add(virtualAmount1);  
 
+        //console.log('totalAssetsAfter swap and balances', totalAssets0, totalAssets1);
+        //console.log('totalAssetsAfter swap and balances', getBalance0(), getBalance1());
         (uint160 sqrtPriceCurrent, int24 tick , , , , , ) = pool.slot0();
 
         uint160 infinity = uint160(uint256(1 << 160) - 1);
@@ -346,9 +366,6 @@ contract SigmaVault is
 
         uint256 uniswapDeposit0 = (totalAssets0.mul(uniswapShare)).div(100);
         uint256 uniswapDeposit1 = (totalAssets1.mul(uniswapShare)).div(100);
-
-        if(uniswapDeposit0 > getBalance0()) yearnWithdraw0(uniswapDeposit0.sub(getBalance0()));
-        if(uniswapDeposit1 > getBalance1()) yearnWithdraw1(uniswapDeposit1.sub(getBalance1()));
 
         uint160 sqrtPriceLower = SqrtPriceMath
             .getNextSqrtPriceFromAmount1RoundingDown(
@@ -378,35 +395,69 @@ contract SigmaVault is
 
         require(tick > TickMath.MIN_TICK + tick_upper - tick + tickSpacing, "tick too low");
         require(tick < TickMath.MAX_TICK - (tick_lower - tick) - tickSpacing, "tick too high");
-        
+
+        (virtualAmount0, virtualAmount1) = _yearnWithdrawlUniswap(liq, virtualAmount0, virtualAmount1);
+
         _mintLiquidity(tick_lower, tick_upper, liq);
 
         lvTotalDeposited0 = virtualAmount0;
         lvTotalDeposited1 = virtualAmount1;
 
-        // test this 
-        // this should match with 
-        //  (virtualAmount0new, virtualAmount1new, uint256 virtualfeeProtocol0, uint256 virtualfeeProtocol1) = getLvAmounts();  
-
+        // // test this 
+        // // this should match with 
+        {
+        (uint256 virtualAmount0new, uint256 virtualAmount1new, uint256 virtualfeeProtocol0, uint256 virtualfeeProtocol1,,) = getLvAmounts();  
+        //console.log('Test lv amounts', lvTotalDeposited0, lvTotalDeposited1);
+        //console.log('Test lv amounts', virtualAmount0new, virtualAmount1new, virtualfeeProtocol1);
+        }
         // If anything is remaining deposit that on yearn
         _depositRemainingLV();
         
     }   
 
+    function _yearnWithdrawlUniswap(uint128 liq, uint256 virtualAmount0, uint256 virtualAmount1) internal returns (uint256 fvirtualAmount0, uint256 fvirtualAmount1)
+    {       
+            fvirtualAmount0 = virtualAmount0;
+            fvirtualAmount1 = virtualAmount1;
+            (uint256 adjustedAmount0, uint256 adjustedAmount1) = _amountsForLiquidity(
+                tick_lower,
+                tick_upper,
+                liq
+            );
+            adjustedAmount0 = adjustedAmount0.add(10);
+            adjustedAmount1 = adjustedAmount1.add(10);
+            
+            if(adjustedAmount0 > getBalance0())
+            {   
+                uint256 virtualAmountWithdrawn = adjustedAmount0.sub(getBalance0());
+                fvirtualAmount0 = virtualAmount0.sub(virtualAmountWithdrawn);
+                yearnWithdraw0(virtualAmountWithdrawn);
+            }
+            if(adjustedAmount1 > getBalance1()) {
+                uint256 virtualAmountWithdrawn = adjustedAmount1.sub(getBalance1());
+                fvirtualAmount1 = virtualAmount1.sub(virtualAmountWithdrawn);
+                yearnWithdraw1(virtualAmountWithdrawn);
+            }
+
+    }
     function _depositRemainingLV() internal {
 
         uint256 totalAssets0Remain = getBalance0();
         if(totalAssets0Remain > 0)
         {   
+            //console.log('totalAssets0Remain', totalAssets0Remain);
             lvTotalDeposited0 = lvTotalDeposited0.add(totalAssets0Remain);
+            //console.log('lvDeposited0', lvTotalDeposited0);
             token0.safeApprove(address(lendVault0), totalAssets0Remain);
             lendVault0.deposit(totalAssets0Remain);
         }
-        
+        //console.log(token1.balanceOf(address(this)), accruedProtocolFees1);
         uint256 totalAssets1Remain = getBalance1();
         if(totalAssets1Remain > 0)
         {   
+            //console.log('totalAssets1Remain', totalAssets1Remain);
             lvTotalDeposited1 = lvTotalDeposited1.add(totalAssets1Remain);
+            //console.log('lvDeposited1', lvTotalDeposited1);
             token1.safeApprove(address(lendVault1), totalAssets1Remain);
             lendVault1.deposit(totalAssets1Remain);
         }
@@ -441,9 +492,10 @@ contract SigmaVault is
         if(totalExcess0>excess0Ignore)
         {
             uint256 swapAmount = FullMath.mulDiv(totalExcess0, 1e6, 2*(1e6-fee));
+            //console.log('swapAmount', swapAmount);
             if(swapAmount > getBalance0())
             {   
-                lvWithdraw = swapAmount.sub(getBalance0());
+                lvWithdraw = swapAmount.sub(getBalance0()).add(10);
                 yearnWithdraw0(lvWithdraw);
             }
             pool.swap(
@@ -470,9 +522,12 @@ contract SigmaVault is
             uint256 swapAmount = FullMath.mulDiv(totalExcess1, 1e6, 2*(1e6-fee));
             if(swapAmount > getBalance1())
             {
-                lvWithdraw = swapAmount.sub(getBalance1());
+                lvWithdraw = swapAmount.sub(getBalance1()).add(10);
                 yearnWithdraw1(lvWithdraw);
+            
+                //console.log('swapAmpunt', swapAmount);
             }
+
             pool.swap(
                 address(this),
                 false,
@@ -603,34 +658,34 @@ contract SigmaVault is
     //     emit Withdraw(msg.sender, to, shares, amount0, amount1);
     // }
 
-    function _executeWithdraw(
-        uint128 liquidity,
-        lv memory _lv
-    )
-        internal
-        returns (
-            uint256 amount0,
-            uint256 amount1
-        )
-    {   
-        //Step 1
-        (uint256 uni0Withdrawn, uint256 uni1Withdrawn, uint256 uniGain0, uint256 uniGain1) = _uniBurnAndCollect(_toUint128(liquidity));
+    // function _executeWithdraw(
+    //     uint128 liquidity,
+    //     lv memory _lv
+    // )
+    //     internal
+    //     returns (
+    //         uint256 amount0,
+    //         uint256 amount1
+    //     )
+    // {   
+    //     //Step 1
+    //     (uint256 uni0Withdrawn, uint256 uni1Withdrawn, uint256 uniGain0, uint256 uniGain1) = _uniBurnAndCollect(_toUint128(liquidity));
     
-        //Step 2 : Yearn
-        (uint256 lvWithdraw0, uint256 lvWithdraw1, uint256 lvGain0, uint256 lvGain1) = _lvWithdraw(
-          _lv
-        );
+    //     //Step 2 : Yearn
+    //     (uint256 lvWithdraw0, uint256 lvWithdraw1, uint256 lvGain0, uint256 lvGain1) = _lvWithdraw(
+    //       _lv
+    //     );
 
-        // Step 3 : Subtract Protocol Fees
-        (uint256 gain0, uint256 gain1) = _accureFees(
-            uniGain0.add(lvGain0),
-            uniGain1.add(lvGain1)
-        );
+    //     // Step 3 : Subtract Protocol Fees
+    //     (uint256 gain0, uint256 gain1) = _accureFees(
+    //         uniGain0.add(lvGain0),
+    //         uniGain1.add(lvGain1)
+    //     );
 
-        // Review : the gains are divided twice in case of Charm, once in liq, once here again, we need to chececk if thats needed
-        amount0 = uni0Withdrawn.add(lvWithdraw0.sub(lvGain0)).add(gain0);
-        amount1 = uni1Withdrawn.add(lvWithdraw1.sub(lvGain1)).add(gain1);
-    }
+    //     // Review : the gains are divided twice in case of Charm, once in liq, once here again, we need to chececk if thats needed
+    //     amount0 = uni0Withdrawn.add(lvWithdraw0.sub(lvGain0)).add(gain0);
+    //     amount1 = uni1Withdrawn.add(lvWithdraw1.sub(lvGain1)).add(gain1);
+    // }
 
     /// @dev Withdraws liquidity from uniswap with fees
     /// uni0withdrawn is differnt from uniGain0
@@ -654,15 +709,15 @@ contract SigmaVault is
         uniGain1 = collect1.sub(uni1Withdrwn);
     }
 
-    /// lvWithdraw0 is cumulative of lvGain0
-    function _lvWithdraw(
-       lv memory _lv
-    ) internal returns (uint256 lvWithdraw0, uint256 lvWithdraw1, uint256 lvGain0, uint256 lvGain1) {
-        if(_lv.yShares0 > 0) lvWithdraw0 = lendVault0.withdraw(_lv.yShares0); // max loss  # 0.01% 
-        if(_lv.yShares1 > 0) lvWithdraw1 = lendVault1.withdraw(_lv.yShares1);
-        lvGain0 = lvWithdraw0 > _lv.deposited0 ? lvWithdraw0 -  _lv.deposited0 : 0;
-        lvGain1 = lvWithdraw1 > _lv.deposited1 ? lvWithdraw1 - _lv.deposited1 : 0;
-    }
+    // /// lvWithdraw0 is cumulative of lvGain0
+    // function _lvWithdraw(
+    //    lv memory _lv
+    // ) internal returns (uint256 lvWithdraw0, uint256 lvWithdraw1, uint256 lvGain0, uint256 lvGain1) {
+    //     if(_lv.yShares0 > 0) lvWithdraw0 = lendVault0.withdraw(_lv.yShares0); // max loss  # 0.01% 
+    //     if(_lv.yShares1 > 0) lvWithdraw1 = lendVault1.withdraw(_lv.yShares1);
+    //     lvGain0 = lvWithdraw0 > _lv.deposited0 ? lvWithdraw0 -  _lv.deposited0 : 0;
+    //     lvGain1 = lvWithdraw1 > _lv.deposited1 ? lvWithdraw1 - _lv.deposited1 : 0;
+    // }
 
     function _accureFees(uint256 totalGain0, uint256 totalGain1)
         internal
@@ -683,13 +738,19 @@ contract SigmaVault is
     /// Helpers 
 
     function yearnWithdraw0(uint256 amount) internal {
+        // uint256 test = getBalance0();
+        // console.log('Y0 Amount Req, Bal', amount, getBalance0());
         uint256 sharesToWithdraw = FullMath.mulDiv(amount,10 ** lendVault0.decimals(), lendVault0.pricePerShare());
         lendVault0.withdraw(sharesToWithdraw); 
+        // console.log('Y0 Amount w, Bal', getBalance0().sub(test), getBalance0());
     }
 
     function yearnWithdraw1(uint256 amount) internal {
+        // uint256 test = getBalance1();
+        // console.log('Y1 Amount Req, Bal', amount, getBalance1());
         uint256 sharesToWithdraw = FullMath.mulDiv(amount,10 ** lendVault1.decimals(), lendVault1.pricePerShare());
         lendVault1.withdraw(sharesToWithdraw); 
+        // console.log('Y1 Amount w, Bal', getBalance1().sub(test), getBalance1());
     }
 
     /// @dev Deposits liquidity in a range on the Uniswap pool.
@@ -722,7 +783,7 @@ contract SigmaVault is
         returns (uint256 total0, uint256 total1)
     {
         (uint256 uniAmount0, uint256 uniAmount1) = getPositionAmounts();
-        (uint256 lvAmount0, uint256 lvAmount1,,) = getLvAmounts();  
+        (uint256 lvAmount0, uint256 lvAmount1,,,,) = getLvAmounts();  
         total0 = getBalance0().add(uniAmount0).add(lvAmount0);
         total1 = getBalance1().add(uniAmount1).add(lvAmount1);
     }
@@ -759,10 +820,13 @@ contract SigmaVault is
      * @notice Present value of lending vault holdings
      * excludes the proportion of fees that will be paid to the protocol.
      */
-    function getLvAmounts() public view returns(uint256 amount0, uint256 amount1, uint256 feeProtocol0, uint256 feeProtocol1)
+    function getLvAmounts() public view returns(uint256 amount0, uint256 amount1, uint256 feeProtocol0, uint256 feeProtocol1, uint256 total0, uint256 total1)
     {
         amount0 = FullMath.mulDiv(lendVault0.balanceOf(address(this)),lendVault0.pricePerShare(),10 ** lendVault0.decimals());
         amount1 = FullMath.mulDiv(lendVault1.balanceOf(address(this)),lendVault1.pricePerShare(),10 ** lendVault1.decimals());
+
+        total0 = amount0;
+        total1 = amount1;
 
         // Subtract protocol fees
         if(amount0>lvTotalDeposited0) 
@@ -828,6 +892,7 @@ contract SigmaVault is
         require(msg.sender == address(pool));
         if (amount0 > 0) token0.safeTransfer(msg.sender, amount0);
         if (amount1 > 0) token1.safeTransfer(msg.sender, amount1);
+        //console.log('UniswapMintCallback', amount0, amount1);
     }
 
     /// @dev Callback for Uniswap V3 pool.
@@ -855,17 +920,17 @@ contract SigmaVault is
         if (_accruedProtocolFees1 > 0) token1.safeTransfer(_feeCollector, _accruedProtocolFees1);
     }
 
-    /**
-     * @notice Removes other tokens accidentally sent to this vault.
-     */
-    function sweep(
-        IERC20 token,
-        uint256 amount,
-        address to
-    ) external onlyGovernanceOrTeamMultisig {
-        require(token != token0 && token != token1, "vault tokens");
-        token.safeTransfer(to, amount);
-    }
+    // /**
+    //  * @notice Removes other tokens accidentally sent to this vault.
+    //  */
+    // function sweep(
+    //     IERC20 token,
+    //     uint256 amount,
+    //     address to
+    // ) external onlyGovernanceOrTeamMultisig {
+    //     require(token != token0 && token != token1, "vault tokens");
+    //     token.safeTransfer(to, amount);
+    // }
 
     /**
      * @notice Used to set the strategy contract that determines the uniswapShare
@@ -915,32 +980,32 @@ contract SigmaVault is
         maxTotalSupply = _maxTotalSupply;
     }
 
-    /**
-     * @notice Removes liquidity in case of emergency.
-     */
-    function emergencyWithdrawUni() external onlyGovernanceOrTeamMultisig {
-        (uint128 totalLiquidity, , , , ) = _position(tick_lower, tick_upper);
-        pool.burn(tick_lower, tick_upper, totalLiquidity);
-        pool.collect(
-            address(this),
-            tick_lower,
-            tick_upper,
-            type(uint128).max,
-            type(uint128).max
-        );
-    }
+    // /**
+    //  * @notice Removes liquidity in case of emergency.
+    //  */
+    // function emergencyWithdrawUni() external onlyGovernanceOrTeamMultisig {
+    //     (uint128 totalLiquidity, , , , ) = _position(tick_lower, tick_upper);
+    //     pool.burn(tick_lower, tick_upper, totalLiquidity);
+    //     pool.collect(
+    //         address(this),
+    //         tick_lower,
+    //         tick_upper,
+    //         type(uint128).max,
+    //         type(uint128).max
+    //     );
+    // }
 
-    /**
-     * @notice Withdraws shares in case of emergency.
-     */
-    function emergencyWithdrawL0() external onlyGovernanceOrTeamMultisig
-    {
-        lendVault0.withdraw();
-    }
-    function emergencyWithdrawL1() external onlyGovernanceOrTeamMultisig
-    {
-        lendVault1.withdraw();
-    }
+    // /**
+    //  * @notice Withdraws shares in case of emergency.
+    //  */
+    // function emergencyWithdrawL0() external onlyGovernanceOrTeamMultisig
+    // {
+    //     lendVault0.withdraw();
+    // }
+    // function emergencyWithdrawL1() external onlyGovernanceOrTeamMultisig
+    // {
+    //     lendVault1.withdraw();
+    // }
 
     /**
      * @notice Allow governance to pause deposit and rebalance, so graceful withdraw can happen in case of any attack
