@@ -12,7 +12,7 @@ import { stealFunds } from './utils/stealFunds';
 import { Contract } from '@ethersproject/contracts';
 import { uniswapV3poolABI } from './utils/abis';
 const { POOL } = SigmaVaultDetails;
-const hre = require('hardhat');
+import { BigNumber } from '@ethersproject/bignumber';
 
 describe('Rebalance Scenarios', function () {
   let SigmaVault: Contract;
@@ -59,7 +59,7 @@ describe('Rebalance Scenarios', function () {
       signers[0].address
     );
 
-    const priceX96 = await SigmaVault._getTwap();
+    const priceX96 = BigNumber.from('0x0d249c415bb350ee25');
     const token0consumed = tokenAmount('10000', 6)
       .mul(toBigNumber('0x1000000000000000000000000'))
       .div(priceX96);
@@ -189,7 +189,7 @@ describe('Rebalance Scenarios', function () {
     const accuredFees0 = await SigmaVault.accruedProtocolFees0();
     const accuredFees1 = await SigmaVault.accruedProtocolFees1();
     expect(accuredFees1).to.equal(toBigNumber('0'));
-    expect(accuredFees0).to.equal(toBigNumber('4767036623394020'));
+    expect(accuredFees0).to.equal(toBigNumber('4767036623351193'));
 
     const feeCollAddress = await SigmaStrategy.feeCollector();
     const feeColl = await ethers.getSigner(feeCollAddress);

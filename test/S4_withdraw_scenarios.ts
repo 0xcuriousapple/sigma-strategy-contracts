@@ -184,9 +184,9 @@ describe('Withdraw Scenarios', function () {
     console.log('Withdrawn1', (Number(withdrawn1) - 15106858788) / 1e6);
     console.log('AccuredFees1', (Number(accuredFees1) - 50966604) / 1e6);
 
-    await SigmaVault.emergencyWithdrawUni();
-    await SigmaVault.emergencyWithdrawL0();
-    await SigmaVault.emergencyWithdrawL1();
+    await SigmaVault.emergencyWithdraw(0);
+    await SigmaVault.emergencyWithdraw(1);
+    await SigmaVault.emergencyWithdraw(2);
 
     expect(await token0.balanceOf(SigmaVault.address)).to.be.closeTo(
       toBigNumber('3267872074675373142'),

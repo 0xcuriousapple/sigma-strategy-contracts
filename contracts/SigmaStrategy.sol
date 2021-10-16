@@ -77,7 +77,7 @@ contract SigmaStrategy {
         // Check price has not moved a lot recently. This mitigates price
         // manipulation during rebalance and also prevents placing orders
         // when it's too volatile.
-        int24 twap = _getTwap();
+        int24 twap = getTwap();
         int24 deviation = tick > twap ? tick - twap : twap - tick;
         require(deviation <= maxTwapDeviation, "maxTwapDeviation");
 
@@ -102,7 +102,7 @@ contract SigmaStrategy {
     }
 
     /// @dev Fetches time-weighted average tick from Uniswap pool.
-    function _getTwap() internal view returns (int24) {
+    function getTwap() public view returns (int24) {
         uint32 _twapDuration = twapDuration;
         uint32[] memory secondsAgo = new uint32[](2);
         secondsAgo[0] = _twapDuration;

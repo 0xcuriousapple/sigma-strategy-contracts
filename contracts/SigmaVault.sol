@@ -24,10 +24,7 @@ import "@uniswap/v3-periphery/contracts/libraries/PositionKey.sol";
 import "./interfaces/YearnVaultAPI.sol";
 
 // Our Own
-
 import "./utils/Governable.sol";
-
-//import "hardhat/console.sol";
 
 // Code borrowed and modified from https://github.com/charmfinance/alpha-vaults-contracts/blob/main/contracts/AlphaVault.sol
 
@@ -100,13 +97,14 @@ contract SigmaVault is
 
     uint256 public lv0Decimals; // Have not made 8 intentially as Yearn stores it in 256
     uint256 public lv1Decimals;
-    int24 public tick_lower;
-    int24 public tick_upper;
     uint256 public accruedProtocolFees0;
     uint256 public accruedProtocolFees1;
+    int24 public tick_lower;
+    int24 public tick_upper;
+    uint64 public thresholdForLV0Deposit;
+    uint64 public thresholdForLV1Deposit;
+    uint8 public buffer;
 
-
-/// @notice : lv decimals. 2 buffers 
     /**
      * @dev After deploying, strategy needs to be set via `setStrategy()`
      * @param _pool Underlying Uniswap V3 pool
@@ -115,6 +113,9 @@ contract SigmaVault is
      * @param _protocolFee Protocol fee expressed as multiple of 1e-6
      * @param _swapExcessIgnore, percentage excess ignored, in terms of /1e-6, so if its 5000, it will be 0.5%
      * @param _maxTotalSupply Cap on total supply
+     * @param _thresholdForLV0Deposit, Deposit into lendingVault0, only if assetsRemain0 > _thresholdForLV0Deposit
+     * @param _thresholdForLV1Deposit, Deposit into lendingVault1, only if assetsRemain1 > _thresholdForLV1Deposit
+     * @param _buffer, amount to be added, while calculating shares to withdraw from lending vaults
      */
     constructor(
         address _pool,
@@ -122,7 +123,10 @@ contract SigmaVault is
         address _lendVault1,
         uint256 _protocolFee,
         uint256 _swapExcessIgnore,
-        uint256 _maxTotalSupply
+        uint256 _maxTotalSupply,
+        uint64 _thresholdForLV0Deposit,
+        uint64 _thresholdForLV1Deposit,
+        uint8 _buffer
     ) ERC20("Sigma Vault", "SV") {
         require(_protocolFee < 1e6, "protocolFee");
 
@@ -135,7 +139,9 @@ contract SigmaVault is
         lendVault1 = VaultAPI(_lendVault1);
         lv0Decimals = lendVault0.decimals();
         lv1Decimals = lendVault1.decimals();
-
+        thresholdForLV0Deposit = _thresholdForLV0Deposit;
+        thresholdForLV1Deposit = _thresholdForLV1Deposit;
+        buffer = _buffer;
         protocolFee = _protocolFee;
         swapExcessIgnore = _swapExcessIgnore;
         maxTotalSupply = _maxTotalSupply;
@@ -222,7 +228,6 @@ contract SigmaVault is
         uint256 amount1Desired
     )
         internal
-        view
         returns (
             uint256 shares,
             uint256 amount0,
@@ -237,7 +242,15 @@ contract SigmaVault is
 
         if (_totalSupply == 0) {
             // For first deposit, restrict to 50-50
-            uint256 priceX96 = _getTwap();
+
+            // had to do external call as there is no space left in this contract, to store twap duration and function for twap
+            // As this is going to be called only once in lifetime of contract, imo its fair tradeoff
+
+            (bool success, bytes memory data) = strategy.call(abi.encodeWithSignature("getTwap()"));
+            require(success, "External call for twap failed");
+            int24 twapTick = abi.decode(data, (int24));
+            uint160 sqrtPriceX96 = TickMath.getSqrtRatioAtTick(twapTick);
+            uint256 priceX96 = FullMath.mulDiv(sqrtPriceX96, sqrtPriceX96, FixedPoint96.Q96);
             uint256 amount0DesiredValueIn1 = FullMath.mulDiv(amount0Desired, priceX96, FixedPoint96.Q96);
 
             if(amount0DesiredValueIn1 > amount1Desired)
@@ -404,7 +417,7 @@ contract SigmaVault is
         // Step 4 : If anything is remaining deposit that on yearn
         {
             uint256 totalAssets0Remain = getBalance0();
-            if(totalAssets0Remain > 0)
+            if(totalAssets0Remain > thresholdForLV0Deposit)
             {   
                 lvTotalDeposited0 = lvTotalDeposited0.add(totalAssets0Remain);
                 token0.safeApprove(address(lendVault0), totalAssets0Remain);
@@ -412,7 +425,7 @@ contract SigmaVault is
             }
 
             uint256 totalAssets1Remain = getBalance1();
-            if(totalAssets1Remain > 0)
+            if(totalAssets1Remain > thresholdForLV1Deposit)
             {   
                 lvTotalDeposited1 = lvTotalDeposited1.add(totalAssets1Remain);
                 token1.safeApprove(address(lendVault1), totalAssets1Remain);
@@ -493,7 +506,7 @@ contract SigmaVault is
     function _WithdrawIfNecessLV0(uint256 amount, uint256 virtualAmount0) internal returns (uint256){
         uint256 balance = getBalance0();
         if(amount > balance){
-            uint256 toWithdraw = amount.sub(balance).add(10);
+            uint256 toWithdraw = amount.sub(balance).add(buffer);
             //console.log('Y1 Amount Req, bal', toWithdraw, balance);
             virtualAmount0 = virtualAmount0.sub(toWithdraw);
             uint256 sharesToWithdraw = FullMath.mulDiv(toWithdraw,10 ** lv0Decimals, lendVault0.pricePerShare());
@@ -506,7 +519,7 @@ contract SigmaVault is
     function _WithdrawIfNecessLV1(uint256 amount, uint256 virtualAmount1) internal returns (uint256){
         uint256 balance = getBalance1();
         if(amount > balance){
-            uint256 toWithdraw = amount.sub(balance).add(10);
+            uint256 toWithdraw = amount.sub(balance).add(buffer);
             //console.log('Y1 Amount Req, bal', toWithdraw, balance);
             virtualAmount1 = virtualAmount1.sub(toWithdraw);
             uint256 sharesToWithdraw = FullMath.mulDiv(toWithdraw,10 ** lv1Decimals, lendVault1.pricePerShare());
@@ -515,24 +528,7 @@ contract SigmaVault is
         }
         return virtualAmount1;
     }
-
-    /// @dev Fetches time-weighted average price 
-    /// Have kept public as we are using it in testing, can be made internal at time of deployment.
-    function _getTwap() public view returns (uint256) {
-        uint32 _twapDuration = 60;
-        uint32[] memory secondsAgo = new uint32[](2);
-        secondsAgo[0] = _twapDuration;
-        secondsAgo[1] = 0;
-
-        (int56[] memory tickCumulatives, ) = pool.observe(secondsAgo);
-        
-        uint160 sqrtPriceX96 = TickMath.getSqrtRatioAtTick(
-                int24((tickCumulatives[1] - tickCumulatives[0]) / _twapDuration)
-        );
-        uint256 priceX96 = FullMath.mulDiv(sqrtPriceX96, sqrtPriceX96, FixedPoint96.Q96);
-        return priceX96 ;
-    }
-    
+ 
     /// @dev adjust tick such that its closest to initilized ones
     /// floorDown ---- actual ---- floorUp    
     /// pick from down or up, depending upon which is closer
@@ -748,7 +744,7 @@ contract SigmaVault is
      * protocol. Doesn't include fees accrued since last poke.
      */
     function getPositionAmounts()
-        public
+        internal
         view
         returns (uint256 amount0, uint256 amount1)
     {
@@ -774,7 +770,7 @@ contract SigmaVault is
      * @notice Present value of lending vault holdings
      * excludes the proportion of fees that will be paid to the protocol.
      */
-    function getLvAmounts() public view returns(uint256 amount0, uint256 amount1, uint256 feeProtocol0, uint256 feeProtocol1, uint256 total0, uint256 total1)
+    function getLvAmounts() internal view returns(uint256 amount0, uint256 amount1, uint256 feeProtocol0, uint256 feeProtocol1, uint256 total0, uint256 total1)
     {
         amount0 = FullMath.mulDiv(lendVault0.balanceOf(address(this)),lendVault0.pricePerShare(),10 ** lv0Decimals);
         amount1 = FullMath.mulDiv(lendVault1.balanceOf(address(this)),lendVault1.pricePerShare(),10 ** lv1Decimals);
@@ -874,17 +870,17 @@ contract SigmaVault is
         if (_accruedProtocolFees1 > 0) token1.safeTransfer(_feeCollector, _accruedProtocolFees1);
     }
 
-    // /**
-    //  * @notice Removes other tokens accidentally sent to this vault.
-    //  */
-    // function sweep(
-    //     IERC20 token,
-    //     uint256 amount,
-    //     address to
-    // ) external onlyGovernanceOrTeamMultisig {
-    //     require(token != token0 && token != token1, "vault tokens");
-    //     token.safeTransfer(to, amount);
-    // }
+    /**
+     * @notice Removes other tokens accidentally sent to this vault.
+     */
+    function sweep(
+        IERC20 token,
+        uint256 amount,
+        address to
+    ) external onlyGovernanceOrTeamMultisig {
+        require(token != token0 && token != token1, "vault tokens");
+        token.safeTransfer(to, amount);
+    }
 
     /**
      * @notice Used to set the strategy contract that determines the uniswapShare
@@ -934,31 +930,40 @@ contract SigmaVault is
         maxTotalSupply = _maxTotalSupply;
     }
 
+    
     /**
-     * @notice Removes liquidity in case of emergency.
+     * @notice Used to change 
+     * @param _thresholdForLV0Deposit, Deposit into lendingVault0, only if assetsRemain0 > _thresholdForLV0Deposit
+     * @param _thresholdForLV1Deposit, Deposit into lendingVault1, only if assetsRemain1 > _thresholdForLV1Deposit
+     * @param _buffer, amount to be added, while calculating shares to withdraw from lending vaults
      */
-    function emergencyWithdrawUni() external onlyGovernanceOrTeamMultisig {
-        (uint128 totalLiquidity, , , , ) = _position(tick_lower, tick_upper);
-        pool.burn(tick_lower, tick_upper, totalLiquidity);
-        pool.collect(
-            address(this),
-            tick_lower,
-            tick_upper,
-            type(uint128).max,
-            type(uint128).max
-        );
+    function setThresholdAndBuffer(uint64 _thresholdForLV0Deposit, uint64 _thresholdForLV1Deposit, uint8 _buffer)
+        external
+        onlyGovernanceOrTeamMultisig
+    {
+        thresholdForLV0Deposit = _thresholdForLV0Deposit;
+        thresholdForLV1Deposit = _thresholdForLV1Deposit;
+        buffer = _buffer;
     }
 
     /**
-     * @notice Withdraws shares in case of emergency.
+     * @notice Removes liquidity or withdraws shares in case of emergency.
      */
-    function emergencyWithdrawL0() external onlyGovernanceOrTeamMultisig
-    {
-        lendVault0.withdraw();
-    }
-    function emergencyWithdrawL1() external onlyGovernanceOrTeamMultisig
-    {
-        lendVault1.withdraw();
+    function emergencyWithdraw (uint8 _case) external onlyGovernanceOrTeamMultisig {
+        if(_case == 0)
+        {   
+            (uint128 totalLiquidity, , , , ) = _position(tick_lower, tick_upper);
+            pool.burn(tick_lower, tick_upper, totalLiquidity);
+            pool.collect(
+                address(this),
+                tick_lower,
+                tick_upper,
+                type(uint128).max,
+                type(uint128).max
+            );
+        } 
+        else if(_case == 1) lendVault0.withdraw();
+        else if(_case == 2) lendVault1.withdraw();
     }
 
     /**

@@ -10,6 +10,7 @@ import { ethers, deployments } from 'hardhat';
 import { SigmaVaultDetails } from '../constants.json';
 import { stealFunds } from './utils/stealFunds';
 import { Contract } from '@ethersproject/contracts';
+import { BigNumber } from '@ethersproject/bignumber';
 const hre = require('hardhat');
 
 describe('SigmaVault Deposit Scenarios', function () {
@@ -61,7 +62,7 @@ describe('SigmaVault Deposit Scenarios', function () {
     // So, only some of 4000 USDT should be consumed
     // Where as total 1 ETH should be be consumed
 
-    const priceX96 = await SigmaVault._getTwap();
+    const priceX96 = BigNumber.from('0x0d249c415bb350ee25');
     const token1Deposited = tokenAmount('1', 18)
       .mul(priceX96)
       .div(toBigNumber('0x1000000000000000000000000'));

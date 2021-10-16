@@ -4,6 +4,7 @@ import { toBigNumber, tokenAmount } from './utils/helpers';
 import { ethers, deployments } from 'hardhat';
 import { SigmaVaultDetails } from '../constants.json';
 import { stealFunds } from './utils/stealFunds';
+import { BigNumber } from '@ethersproject/bignumber';
 
 describe('SigmaVault', function () {
   it('Deposit Unit Test', async function () {
@@ -51,7 +52,7 @@ describe('SigmaVault', function () {
     // So, only some of 10 eth should be consumed
     // Where as total 10000 should be consumed
 
-    const priceX96 = await SigmaVault._getTwap();
+    const priceX96 = BigNumber.from('0x0d249c415bb350ee25');
     const token0consumed = tokenAmount('10000', 6)
       .mul(toBigNumber('0x1000000000000000000000000'))
       .div(priceX96);

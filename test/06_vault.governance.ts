@@ -54,6 +54,9 @@ describe('SigmaVault Governance', function () {
     await expect(SigmaVault.connect(signers[1]).setMaxTotalSupply(10000000)).to.be.revertedWith(
       'Governable: caller is not the gov or multisig'
     );
+    await expect(
+      SigmaVault.connect(signers[1]).setThresholdAndBuffer(1000, 1000, 10)
+    ).to.be.revertedWith('Governable: caller is not the gov or multisig');
     await expect(SigmaVault.connect(signers[1]).setProtocolFee(20000)).to.be.revertedWith(
       'Governable: caller is not the gov'
     );
@@ -72,6 +75,11 @@ describe('SigmaVault Governance', function () {
     expect(await SigmaVault.maxTotalSupply()).to.be.equal(toBigNumber('1000000'));
     await SigmaVault.setSwapExcessIgnore(toBigNumber('6000'));
     expect(await SigmaVault.swapExcessIgnore()).to.be.equal(toBigNumber('6000'));
+    await SigmaVault.connect(signers[0]).setThresholdAndBuffer(2000, 3000, 20);
+    expect(await SigmaVault.thresholdForLV0Deposit()).to.be.equal(toBigNumber('2000'));
+    expect(await SigmaVault.thresholdForLV1Deposit()).to.be.equal(toBigNumber('3000'));
+    expect(await SigmaVault.buffer()).to.be.equal(toBigNumber('20'));
+
     // Trasfer governance
     await expect(
       SigmaVault.connect(signers[1]).transferTeamMultisig(signers[1].address)
