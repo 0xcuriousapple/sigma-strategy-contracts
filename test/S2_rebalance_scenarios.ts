@@ -234,6 +234,7 @@ describe('Rebalance Scenarios', function () {
     // // expect(totalAfter[0].mul(priceX96).div(toBigNumber('0x1000000000000000000000000'))).to.equal(
     // //   totalAfter[1]
     // // );
+    // 33ae130f925191c83448ef56ac874806688f52615be344d14d07d8470fea2b65
     const accuredFees0 = await SigmaVault.accruedProtocolFees0();
     const accuredFees1 = await SigmaVault.accruedProtocolFees1();
     expect(accuredFees1).to.equal(toBigNumber('0'));

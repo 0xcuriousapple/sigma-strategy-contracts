@@ -1,7 +1,18 @@
 {
   "extends": "solhint:recommended",
+  "plugins": ["prettier"],
   "rules": {
+    "avoid-suicide": "error",
     "compiler-version": ["error", "0.7.6"],
-    "func-visibility": ["warn", { "ignoreConstructors": true }]
+    "func-visibility": ["error", { "ignoreConstructors": true }],
+    "imports-on-top": "warn",
+    "mark-callable-contracts": "off",
+    "max-line-length": ["warn", 127],
+    "no-unused-vars": "warn",
+    "not-rely-on-time": "off",
+    "prettier/prettier": "error",
+    "private-vars-leading-underscore": "error",
+    "quotes": ["error", "double"],
+    "reentrancy": "error"
   }
 }

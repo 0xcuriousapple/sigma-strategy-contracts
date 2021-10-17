@@ -37,7 +37,7 @@ describe('SigmaVault Governance', function () {
     //Anyone shouldne be able to sweep
     await expect(
       SigmaVault.connect(signers[1]).sweep(token3Address, initialBal, signers[0].address)
-    ).to.be.revertedWith('Governable: caller is not the gov or multisig');
+    ).to.be.revertedWith('caller is not the gov/multisig');
 
     //Governance should be able to sweep
     await SigmaVault.sweep(token3Address, initialBal, signers[0].address);
@@ -50,15 +50,15 @@ describe('SigmaVault Governance', function () {
     // Reverts
     await expect(
       SigmaVault.connect(signers[1]).setStrategy('0xbB93e510BbCD0B7beb5A853875f9eC60275CF498')
-    ).to.be.revertedWith('Governable: caller is not the gov or multisig');
+    ).to.be.revertedWith('caller is not the gov/multisig');
     await expect(SigmaVault.connect(signers[1]).setMaxTotalSupply(10000000)).to.be.revertedWith(
-      'Governable: caller is not the gov or multisig'
+      'caller is not the gov/multisig'
     );
     await expect(
       SigmaVault.connect(signers[1]).setThresholdAndBuffer(1000, 1000, 10)
-    ).to.be.revertedWith('Governable: caller is not the gov or multisig');
+    ).to.be.revertedWith('caller is not the gov/multisig');
     await expect(SigmaVault.connect(signers[1]).setProtocolFee(20000)).to.be.revertedWith(
-      'Governable: caller is not the gov'
+      'caller is not the gov'
     );
     await expect(SigmaVault.connect(signers[0]).setProtocolFee(1000000)).to.be.revertedWith(
       'protocolFee excceding 1e6'
@@ -83,11 +83,11 @@ describe('SigmaVault Governance', function () {
     // Trasfer governance
     await expect(
       SigmaVault.connect(signers[1]).transferTeamMultisig(signers[1].address)
-    ).to.be.revertedWith('Governable: caller is not the gov or multisig');
+    ).to.be.revertedWith('caller is not the gov/multisig');
     await SigmaVault.transferTeamMultisig(signers[1].address);
     await SigmaVault.connect(signers[1]).setMaxTotalSupply(10000000);
     await expect(SigmaVault.connect(signers[1]).setProtocolFee(1000)).to.be.revertedWith(
-      'Governable: caller is not the gov'
+      'caller is not the gov'
     );
     await SigmaVault.transferGovernance(signers[1].address);
     await SigmaVault.connect(signers[1]).setProtocolFee(1000);
@@ -101,7 +101,7 @@ describe('SigmaVault Governance', function () {
 
     // Reverts
     await expect(SigmaVault.connect(signers[1]).pause()).to.be.revertedWith(
-      'Governable: caller is not the gov or multisig'
+      'caller is not the gov/multisig'
     );
 
     await SigmaVault.pause();

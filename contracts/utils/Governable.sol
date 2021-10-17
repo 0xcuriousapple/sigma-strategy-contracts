@@ -52,10 +52,7 @@ abstract contract Governable is Context {
      * @dev Throws if called by any account other than the governance.
      */
     modifier onlyGovernance() {
-        require(
-            governance() == _msgSender(),
-            "Governable: caller is not the gov"
-        );
+        require(governance() == _msgSender(), "caller is not the gov");
         _;
     }
 
@@ -65,7 +62,7 @@ abstract contract Governable is Context {
     modifier onlyGovernanceOrTeamMultisig() {
         require(
             teamMultisig() == _msgSender() || governance() == _msgSender(),
-            "Governable: caller is not the gov or multisig"
+            "caller is not the gov/multisig"
         );
         _;
     }
@@ -79,10 +76,7 @@ abstract contract Governable is Context {
         virtual
         onlyGovernance
     {
-        require(
-            newGovernance != address(0),
-            "Governable: new gov is the zero address"
-        );
+        require(newGovernance != address(0), "new gov is the zero address");
         emit GovernanceTransferred(_governance, newGovernance);
         _governance = newGovernance;
     }
@@ -98,7 +92,7 @@ abstract contract Governable is Context {
     {
         require(
             newTeamMultisig != address(0),
-            "Governable: new multisig is the zero address"
+            "new multisig is the zero address"
         );
         emit TeamMultisigTransferred(_teamMultisig, newTeamMultisig);
         _teamMultisig = newTeamMultisig;

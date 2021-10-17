@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Unlicense
-pragma solidity ^0.7.6;
+pragma solidity 0.7.6;
 
 import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 import "@uniswap/v3-core/contracts/libraries/TickMath.sol";
@@ -14,9 +14,8 @@ import "./interfaces/ISigmaVault.sol";
  */
 
 contract SigmaStrategy {
-    
-    ISigmaVault public vault; 
-    IUniswapV3Pool public pool; 
+    ISigmaVault public vault;
+    IUniswapV3Pool public pool;
     int24 public tickSpacing;
 
     uint8 public uniswapShare;
@@ -24,7 +23,7 @@ contract SigmaStrategy {
     uint32 public twapDuration;
     address public keeper;
     address public feeCollector;
-    
+
     uint32 public rebalanceGap;
     int24 public lastTick;
     uint256 public lastRebalance;
@@ -34,7 +33,7 @@ contract SigmaStrategy {
      * @param _uniswapShare percentage of totalAssets to be used for uniSwap, @notice /100
      * @param _maxTwapDeviation Max deviation from TWAP during rebalance, @notice in ticks
      * @param _twapDuration TWAP duration in seconds for rebalance check
-     * @param _rebalanceGap gap in seconds for subq rebalances 
+     * @param _rebalanceGap gap in seconds for subq rebalances
      * @param _keeper Account that can call `rebalance()`
      * @param _feeCollector Account that can call `redeemFees()`
      */
@@ -69,8 +68,10 @@ contract SigmaStrategy {
      * can only be called by keeper.
      */
     function rebalance() external onlyKeeper {
-
-        require(block.timestamp - lastRebalance >= rebalanceGap, "Premature Rebalance");
+        require(
+            block.timestamp - lastRebalance >= rebalanceGap,
+            "Premature Rebalance"
+        );
 
         int24 tick = _getTick();
 
@@ -83,7 +84,7 @@ contract SigmaStrategy {
 
         lastRebalance = block.timestamp;
         lastTick = tick;
-        
+
         vault.rebalance(uniswapShare);
     }
 
@@ -91,8 +92,7 @@ contract SigmaStrategy {
      * @notice Allows feeCollector to redeemFees via calling 'vault.redeemFees'
      * can only be called by feeCollector.
      */
-    function redeemFees() external onlyFeeCollector 
-    {
+    function redeemFees() external onlyFeeCollector {
         vault.collectFees(feeCollector);
     }
 
@@ -109,7 +109,7 @@ contract SigmaStrategy {
         secondsAgo[1] = 0;
 
         (int56[] memory tickCumulatives, ) = pool.observe(secondsAgo);
-        return int24((tickCumulatives[1] - tickCumulatives[0]) / _twapDuration); 
+        return int24((tickCumulatives[1] - tickCumulatives[0]) / _twapDuration);
     }
 
     /// @notice : Setters
@@ -142,10 +142,7 @@ contract SigmaStrategy {
         rebalanceGap = _rebalanceGap;
     }
 
-    function setFeeCollector(address _feeCollector)
-        external
-        onlyGovernance
-    {
+    function setFeeCollector(address _feeCollector) external onlyGovernance {
         feeCollector = _feeCollector;
     }
 
